@@ -27,7 +27,12 @@ void calc(float present_num,char operator,float* result){
         *result = *result - present_num;
     else if(operator == '=')
         *result = present_num;
-    printf("prev_result : %f presentnum : %f operator : %c result = %f\n",prev_result,present_num,operator,*result);
+    // printf("prev_result : %f presentnum : %f operator : %c result = %f\n",prev_result,present_num,operator,*result);
+}
+void reset(float* present_num,bool* decimal,float* pow10){
+    *present_num = 0;
+    *decimal = false;
+    *pow10 = 0.1;
 }
 int main(){
     char buffer[PACKET_SIZE];
@@ -66,24 +71,26 @@ int main(){
     while(1){        
         bool first = true;
         bool decimal = false;
-        float num1 = 0,num2 = 0;
+        float num[2];
         float present_num = 0;
         float pow10 = 0.1;
-        char operator = '=';
+        char operator[2];
+        operator[0] = '=';
+        operator[1] = '=';
+        bool bracket = false;
         bool end = false;
         while(1){
             recv(newsockfd,buffer,20,0);
-            printf("Before reading next buffer, present num is: %f",present_num);
+            // printf("Before reading next buffer, present num is: %f\n",present_num);
             if(first){
                 if(buffer[0] == '-'){
                     done = true;
                     break;
                 }
                 first = false;
-
             }
             for(int i = 0;i < 20;i++){
-                printf("character recived : %c\n",buffer[i]);
+                // printf("character recived : %c\n",buffer[i]);
                 if(buffer[i] - '0' >= 0 && buffer[i] - '0' <= 9){
                     
                     if(decimal){
@@ -91,36 +98,41 @@ int main(){
                         pow10 /= 10;
                     }
                     else present_num = present_num*10.0 + (float)(buffer[i] - '0');
-                    printf("present_num now : %f\n",present_num);
+                    // printf("present_num now : %f\n",present_num);
                     
                 }
                 else if(buffer[i] == '.'){
                     decimal = true;
                 }
+                else if(buffer[i] == '('){
+                    bracket = true;
+                }
+                else if(buffer[i] == ')'){
+                    if(operator[bracket] != NO_OP){
+                        calc(present_num,operator[bracket],&num[bracket]);
+                        operator[bracket] = NO_OP;
+                    }
+                    reset(&present_num,&decimal,&pow10);
+                    present_num = num[bracket];
+                    operator[bracket] = '=';
+                    num[bracket] = 0;
+                    bracket = false;
+                }
                 else if(buffer[i] == ' '){
-                    // if(operator != NO_OP){
-                    //     calc(present_num,operator,&num1);
-                    //     operator = NO_OP;
-                    // }
-                    // present_num = 0;
-                    // decimal = false;
-                    // pow10 = 0.1;
                     continue;
                 }
                 else if(isOperator(buffer[i])){
-                    if(operator != NO_OP){
-                        calc(present_num,operator,&num1);
-                        operator = NO_OP;
+                    if(operator[bracket] != NO_OP){
+                        calc(present_num,operator[bracket],&num[bracket]);
+                        operator[bracket] = NO_OP;
                     }
-                    present_num = 0;
-                    decimal = false;
-                    pow10 = 0.1;
-                    operator = buffer[i];
+                    reset(&present_num,&decimal,&pow10);
+                    operator[bracket] = buffer[i];
                 }
                 else if(buffer[i] == '\0'){
-                    if(operator != NO_OP){
-                        calc(present_num,operator,&num1);
-                        operator = NO_OP;
+                    if(operator[bracket] != NO_OP){
+                        calc(present_num,operator[bracket],&num[bracket]);
+                        operator[bracket] = NO_OP;
                     }
                     end = true;
                     break;
@@ -128,12 +140,11 @@ int main(){
             }
             if(end){
                 char result[40];
-                sprintf(result,"Answer : %f\n",num1);
+                sprintf(result,"Answer : %f\n",num[bracket]);
                 printf("%s",result);
                 send(newsockfd,result,strlen(result)+1,0);
                 break;
-            }
-            
+            }   
         }
         if(done)
                 break;
