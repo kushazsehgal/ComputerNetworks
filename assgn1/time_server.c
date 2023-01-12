@@ -1,3 +1,8 @@
+/////////////////////////////////
+// Networks Lab Assignment 1 : Q2
+// Name : Kushaz Sehgal
+// Roll Number : 20CS30030
+/////////////////////////////////
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -7,7 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include<time.h>
-#define PORT_NUM 1301
+#define PORT_NUM 2000
 
 int main(){
     char buffer[200];
