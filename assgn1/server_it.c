@@ -1,3 +1,8 @@
+/////////////////////////////////
+// Networks Lab Assignment 1 : Q1
+// Name : Kushaz Sehgal
+// Roll Number : 20CS30030
+/////////////////////////////////
 #include<stdio.h>
 #include<stdlib.h>
 #include<sys/socket.h>
