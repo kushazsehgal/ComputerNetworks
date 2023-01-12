@@ -61,102 +61,106 @@ int main(){
     }
 
     listen(sockfd,1);
-    int cli_len = sizeof(cli_addr);
-    int newsockfd;
-    newsockfd = accept(sockfd,(struct sockaddr*)&cli_addr,&cli_len);
-    if(newsockfd < 0){
-        perror("Connection(accept) to client failed\n");
-        exit(0);
-    }
-    else{
-        printf("Connection with client established\n");
-    }
-        
-    bool done = false;
-    while(1){        
-        bool first = true;
-        bool decimal = false;
-        float num[2];
-        float present_num = 0;
-        float pow10 = 0.1;
-        char operator[2];
-        operator[0] = '=';
-        operator[1] = '=';
-        bool bracket = false;
-        bool end = false;
-        while(1){
-            recv(newsockfd,buffer,20,0);
-            // printf("Before reading next buffer, present num is: %f\n",present_num);
-            if(first){
-                if(buffer[0] == '-'){
-                    done = true;
-                    break;
-                }
-                first = false;
-            }
-            for(int i = 0;i < 20;i++){
-                // printf("character recived : %c\n",buffer[i]);
-                if(buffer[i] - '0' >= 0 && buffer[i] - '0' <= 9){
-                    
-                    if(decimal){
-                        present_num += (float)(buffer[i] - '0')*pow10;
-                        pow10 /= 10;
-                    }
-                    else present_num = present_num*10.0 + (float)(buffer[i] - '0');
-                    // printf("present_num now : %f\n",present_num);
-                    
-                }
-                else if(buffer[i] == '.'){
-                    decimal = true;
-                }
-                else if(buffer[i] == '('){
-                    bracket = true;
-                }
-                else if(buffer[i] == ')'){
-                    if(operator[bracket] != NO_OP){
-                        calc(present_num,operator[bracket],&num[bracket]);
-                        operator[bracket] = NO_OP;
-                    }
-                    reset(&present_num,&decimal,&pow10);
-                    present_num = num[bracket];
-                    operator[bracket] = '=';
-                    num[bracket] = 0;
-                    bracket = false;
-                }
-                else if(buffer[i] == ' '){
-                    continue;
-                }
-                else if(isOperator(buffer[i])){
-                    if(operator[bracket] != NO_OP){
-                        calc(present_num,operator[bracket],&num[bracket]);
-                        operator[bracket] = NO_OP;
-                    }
-                    reset(&present_num,&decimal,&pow10);
-                    operator[bracket] = buffer[i];
-                }
-                else if(buffer[i] == '\0'){
-                    if(operator[bracket] != NO_OP){
-                        calc(present_num,operator[bracket],&num[bracket]);
-                        operator[bracket] = NO_OP;
-                    }
-                    end = true;
-                    break;
-                }
-            }
-            if(end){
-                char result[40];
-                sprintf(result,"Answer : %f\n",num[bracket]);
-                printf("%s",result);
-                send(newsockfd,result,strlen(result)+1,0);
-                break;
-            }   
+    while(1){
+        int cli_len = sizeof(cli_addr);
+        int newsockfd;
+        newsockfd = accept(sockfd,(struct sockaddr*)&cli_addr,&cli_len);
+        if(newsockfd < 0){
+            perror("Connection(accept) to client failed\n");
+            exit(0);
         }
-        if(done)
-                break;
+        else{
+            printf("Connection with client established\n");
+        }
+            
+        bool done = false;
+        while(1){        
+            bool first = true;
+            bool decimal = false;
+            float num[2];
+            float present_num = 0;
+            float pow10 = 0.1;
+            char operator[2];
+            operator[0] = '=';
+            operator[1] = '=';
+            bool bracket = false;
+            bool end = false;
+            while(1){
+                recv(newsockfd,buffer,20,0);
+                // printf("Before reading next buffer, present num is: %f\n",present_num);
+                if(first){
+                    if(buffer[0] == '-'){
+                        done = true;
+                        break;
+                    }
+                    first = false;
+                }
+                for(int i = 0;i < 20;i++){
+                    // printf("character recived : %c\n",buffer[i]);
+                    if(buffer[i] - '0' >= 0 && buffer[i] - '0' <= 9){
+                        
+                        if(decimal){
+                            present_num += (float)(buffer[i] - '0')*pow10;
+                            pow10 /= 10;
+                        }
+                        else present_num = present_num*10.0 + (float)(buffer[i] - '0');
+                        // printf("present_num now : %f\n",present_num);
+                        
+                    }
+                    else if(buffer[i] == '.'){
+                        decimal = true;
+                    }
+                    else if(buffer[i] == '('){
+                        bracket = true;
+                    }
+                    else if(buffer[i] == ')'){
+                        if(operator[bracket] != NO_OP){
+                            calc(present_num,operator[bracket],&num[bracket]);
+                            operator[bracket] = NO_OP;
+                        }
+                        reset(&present_num,&decimal,&pow10);
+                        present_num = num[bracket];
+                        operator[bracket] = '=';
+                        num[bracket] = 0;
+                        bracket = false;
+                    }
+                    else if(buffer[i] == ' '){
+                        continue;
+                    }
+                    else if(isOperator(buffer[i])){
+                        if(operator[bracket] != NO_OP){
+                            calc(present_num,operator[bracket],&num[bracket]);
+                            operator[bracket] = NO_OP;
+                        }
+                        reset(&present_num,&decimal,&pow10);
+                        operator[bracket] = buffer[i];
+                    }
+                    else if(buffer[i] == '\0'){
+                        if(operator[bracket] != NO_OP){
+                            calc(present_num,operator[bracket],&num[bracket]);
+                            operator[bracket] = NO_OP;
+                        }
+                        end = true;
+                        break;
+                    }
+                }
+                if(end){
+                    char result[40];
+                    sprintf(result,"Answer : %f\n",num[bracket]);
+                    printf("%s",result);
+                    send(newsockfd,result,strlen(result)+1,0);
+                    break;
+                }   
+            }
+            if(done)
+                    break;
 
+        }
+        close(newsockfd);
+        printf("Connection with client terminated\n");
     }
-    close(newsockfd);
+    
+
     close(sockfd);
-    printf("Connection with client terminated\n");
     return 0;
 }
