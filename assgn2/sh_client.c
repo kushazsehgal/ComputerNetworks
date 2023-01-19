@@ -15,7 +15,26 @@
 #include<stdbool.h>
 #define PORT_NUM 1301
 #define PACKET_SIZE 50
-#define TOT_SIZE 500
+#define TOT_SIZE 2000
+
+void input(int sockfd,char buffer[],char total[]){
+    bool done = false;
+    int j = 0;
+    while(!done){
+        recv(sockfd,buffer,PACKET_SIZE,0);
+        for(int i = 0;i < PACKET_SIZE;i++){
+            total[j++] = buffer[i];
+            if(buffer[i] == '\0'){
+                done = true;
+                break;
+            } 
+        }
+        for(int i = 0;i < PACKET_SIZE;i++)
+            buffer[i] = '\0';
+    }
+    // printf("length : %d\n",j);
+}
+
 int main(){
     char buffer[PACKET_SIZE];
     char total[TOT_SIZE];
@@ -42,21 +61,21 @@ int main(){
         printf("Connection with sever established\n");
     }
 
-    recv(sockfd,buffer,PACKET_SIZE,0);
-    printf("%s",buffer);
-    for(int i = 0;i < PACKET_SIZE;i++)
-        buffer[i] = '\0';
+    input(sockfd,buffer,total);//total contains LOGIN
+    printf("%s",total);
+    for(int i = 0;i < TOT_SIZE;i++)
+        total[i] = '\0';
     scanf("%s",buffer);
     char c;
     scanf("%c",&c);
     send(sockfd,buffer,strlen(buffer)+1,0);
     for(int i = 0;i < PACKET_SIZE;i++)
         buffer[i] = '\0';
-    recv(sockfd,buffer,PACKET_SIZE,0);
-    if(strcmp(buffer,"FOUND") == 0){
+    input(sockfd,buffer,total);//total contains FOUND or NOT-FOUND
+    if(strcmp(total,"FOUND") == 0){
         printf("User Successfully Logged in !\n");
-        for(int i = 0;i < PACKET_SIZE;i++)
-            buffer[i] = '\0';
+        for(int i = 0;i < TOT_SIZE;i++)
+            total[i] = '\0';
         while(1){
             printf("Enter Command : ");
             bool done = false;
@@ -64,11 +83,13 @@ int main(){
                 int i = 0;
                 while(i < 50){
                     scanf("%c",&c);
-                    buffer[i++] = c;
+                    buffer[i] = c;
                     if(c == '\n'){
+                        buffer[i] = '\0'; 
                         done = true;
                         break;
                     }
+                    i++;
                 }
                 send(sockfd,buffer,PACKET_SIZE,0);
                 for(int i = 0;i < PACKET_SIZE;i++)
@@ -77,20 +98,8 @@ int main(){
                 if(done)
                     break;
             }
-            done = false;
-            int j = 0;
-            while(1){
-                recv(sockfd,buffer,PACKET_SIZE,0);
-                for(int i = 0;i < PACKET_SIZE;i++){
-                    total[j++] = buffer[i];
-                    if(buffer[i] == '\0'){
-                        done = true;
-                        break;
-                    }
-                }
-                if(done)
-                    break;
-            }
+            input(sockfd,buffer,total);// total contains output
+        
             if(strcmp(total,"exit") == 0){
                 printf("Goodbye!\n");
                 break;
@@ -111,7 +120,7 @@ int main(){
                 total[i] = '\0';   
         }
     }
-    else if(strcmp(buffer,"NOT-FOUND") == 0){
+    else if(strcmp(total,"NOT-FOUND") == 0){
         printf("Login Unsuccessfull !\n");
     }
     
