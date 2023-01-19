@@ -54,9 +54,7 @@ int main(){
     strcpy(buffer,ctime(&t));
     sendto(sockfd, (const char *)buffer, strlen(buffer) + 1, 0, 
 			(const struct sockaddr *) &cliaddr, sizeof(cliaddr)); 
-    // if(sent == 0)
-    //     printf("Could not send message\n");
-    // else printf("Message sent succefully\n");
+
     close(sockfd);
     return 0;
 }
