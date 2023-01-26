@@ -34,7 +34,7 @@ void input(int sockfd,char buffer[],char total[]){
 }
 int main(int argc,char** argv){
     int port;
-    sscanf(argv[1],"%d",port);
+    sscanf(argv[1],"%d",&port);
     for(int i = 0;i < 20;i++)
         buffer[i] = '\0';
     for(int i = 0;i < 200;i++)
@@ -56,7 +56,7 @@ int main(int argc,char** argv){
         exit(0);
     }
     else{
-        printf("Connection with sever established\n");
+        printf("Connected to Load Balancer: %s %d\n", inet_ntoa(serv_addr.sin_addr), ntohs(serv_addr.sin_port));
     }
 
     input(sockfd,buffer,total);

@@ -76,18 +76,22 @@ int main(int argc,char** argv){
 		}
         if(fork() == 0){
             close(servsockfd);
+            printf("Connected to Load Balancer: %s %d\n", inet_ntoa(lb_addr.sin_addr), ntohs(lb_addr.sin_port));
             input(lb_clisockfd,buffer,total);
-            if(strcmp(buffer,ask_load) == 0){
+            if(strcmp(total,ask_load) == 0){
+                 srand((int)time(NULL) + servport);// To ensure both servers have different seeds
                 int load = 1 + rand()%100;
                 for(int i = 0;i < PACKET_SIZE;i++)
                     buffer[i] = '\0';
                 sprintf(buffer,"%d",load);
+                printf("load sent : %s\n",buffer);
                 send(lb_clisockfd,buffer,strlen(buffer) + 1,0);
             }
-            else if(strcmp(buffer,ask_time) == 0){
+            else if(strcmp(total,ask_time) == 0){
                 time_t t;
                 time(&t);
                 strcpy(buffer,ctime(&t));
+                printf("time sent : %s\n",buffer);
                 send(lb_clisockfd,buffer,strlen(buffer) + 1,0);
                 for(int i = 0;i < PACKET_SIZE;i++)
                     buffer[i] = '\0';
@@ -95,6 +99,7 @@ int main(int argc,char** argv){
             close(lb_clisockfd);
             exit(0);
         }
+       
         close(lb_clisockfd);
     }
     
