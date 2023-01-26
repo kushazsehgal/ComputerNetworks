@@ -1,5 +1,5 @@
 /////////////////////////////////
-// Networks Lab Assignment 3 : client
+// Networks Lab Assignment 3 : load balance
 // Name : Kushaz Sehgal
 // Roll Number : 20CS30030
 /////////////////////////////////

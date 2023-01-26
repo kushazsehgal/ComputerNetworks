@@ -1,5 +1,5 @@
 /////////////////////////////////
-// Networks Lab Assignment 2 : Q2
+// Networks Lab Assignment 3 : server
 // Name : Kushaz Sehgal
 // Roll Number : 20CS30030
 /////////////////////////////////
