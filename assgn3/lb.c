@@ -100,11 +100,11 @@ int main(int argc, char** argv){
         
         getdata(&s[1],ask_load);
         int load1 = atoi(total);
-        printf("Load 1 : %d from %s %d",load1,inet_ntoa(s[1].serv_addr.sin_addr), ntohs(s[1].serv_addr.sin_port));
+        printf("\nLoad 1 : %d from %s %d\n",load1,inet_ntoa(s[1].serv_addr.sin_addr), ntohs(s[1].serv_addr.sin_port));
         for(int i = 0;i < TOT_SIZE;i++)total[i] = '\0';
         getdata(&s[2],ask_load);
         int load2 = atoi(total);
-        printf("Load 2 : %d from %s %d",load1,inet_ntoa(s[1].serv_addr.sin_addr), ntohs(s[1].serv_addr.sin_port));
+        printf("Load 2 : %d from %s %d\n\n",load2,inet_ntoa(s[2].serv_addr.sin_addr), ntohs(s[2].serv_addr.sin_port));
         for(int i = 0;i < TOT_SIZE;i++)total[i] = '\0';
         int serverindex = (load1 > load2) ? 2 : 1;
 

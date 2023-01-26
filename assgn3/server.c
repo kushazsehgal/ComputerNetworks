@@ -97,7 +97,7 @@ int main(int argc,char** argv){
                 time_t t;
                 time(&t);
                 strcpy(buffer,ctime(&t));
-                printf("time sent : %s by this Server\n",buffer);
+                printf("time sent by this Server : %s\n",buffer);
                 send(lb_clisockfd,buffer,strlen(buffer) + 1,0);
                 for(int i = 0;i < PACKET_SIZE;i++)
                     buffer[i] = '\0';
