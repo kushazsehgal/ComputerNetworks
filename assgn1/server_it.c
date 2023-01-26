@@ -13,7 +13,7 @@
 #include<unistd.h>
 #include <stdbool.h>
 #define PORT_NUM 1301
-#define PACKET_SIZE 20
+#define PACKET_SIZE 40
 #define NO_OP '_'
 bool isOperator(char c){
     if(c == '-' || c == '+' || c == '*' || c == '/')

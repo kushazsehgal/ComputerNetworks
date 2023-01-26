@@ -47,7 +47,7 @@ int main(){
 			( struct sockaddr *) &cliaddr, &len);  
     printf("%s\n",buffer);
     //////////////////
-    sleep(WAIT_TIME);
+    // sleep(WAIT_TIME);
     ///////////////////
     time_t t;
     time(&t);
