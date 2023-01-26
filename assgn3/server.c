@@ -86,12 +86,18 @@ int main(int argc,char** argv){
                 sprintf(buffer,"%d",load);
                 printf("load sent : %s\n",buffer);
                 send(lb_clisockfd,buffer,strlen(buffer) + 1,0);
+                time_t t;
+                time(&t);
+                strcpy(buffer,ctime(&t));
+                printf("time at which load is called : %s\n",buffer);
+                for(int i = 0;i < PACKET_SIZE;i++)
+                    buffer[i] = '\0';
             }
             else if(strcmp(total,ask_time) == 0){
                 time_t t;
                 time(&t);
                 strcpy(buffer,ctime(&t));
-                printf("time sent : %s\n",buffer);
+                printf("time sent : %s by this Server\n",buffer);
                 send(lb_clisockfd,buffer,strlen(buffer) + 1,0);
                 for(int i = 0;i < PACKET_SIZE;i++)
                     buffer[i] = '\0';

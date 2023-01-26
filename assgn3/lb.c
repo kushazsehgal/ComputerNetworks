@@ -67,9 +67,10 @@ void getdata(struct entity *s,char* text){
     input(lb_clisockfd);
     close(lb_clisockfd);
 }
-
+////////////////////////////////
 //s[0] --> load balancer
 //s[1] and s[2] --> two loads
+////////////////////////////////
 int main(int argc, char** argv){
     for(int i = 0;i < PACKET_SIZE;i++)
         buffer[i] = '\0';
@@ -95,24 +96,18 @@ int main(int argc, char** argv){
     }
 
     listen(s[0].servsockfd,5);  
-    // struct timeval last_load,present;
     while(1){
         
         getdata(&s[1],ask_load);
-        printf("total1 : %s\n",total);
         int load1 = atoi(total);
-        printf("Load 1 : %d\n",load1);
+        printf("Load 1 : %d from %s %d",load1,inet_ntoa(s[1].serv_addr.sin_addr), ntohs(s[1].serv_addr.sin_port));
         for(int i = 0;i < TOT_SIZE;i++)total[i] = '\0';
         getdata(&s[2],ask_load);
         int load2 = atoi(total);
-        printf("total1 : %s\n",total);
-        printf("Load 2 : %d\n",load2);
+        printf("Load 2 : %d from %s %d",load1,inet_ntoa(s[1].serv_addr.sin_addr), ntohs(s[1].serv_addr.sin_port));
         for(int i = 0;i < TOT_SIZE;i++)total[i] = '\0';
         int serverindex = (load1 > load2) ? 2 : 1;
 
-        
-        // gettimeofday(&last_load,NULL);
-        // int end_seconds = last_load.tv_sec + 5;
         time_t last_load = time(NULL);
         int cli_len = sizeof(cli_addr);
         struct pollfd poll_time;
@@ -122,7 +117,6 @@ int main(int argc, char** argv){
 
         while(time(NULL) - last_load < 5){
 
-            // float seconds_past = (float)(1.0*clock() - last_load)/CLOCKS_PER_SEC;
             printf("Seconds Past : %f\n",difftime(time(NULL),last_load));
             int pollfor = (5.0 - difftime(time(NULL),last_load))*1000.0;
             printf("Polling for : %d\n",pollfor);
