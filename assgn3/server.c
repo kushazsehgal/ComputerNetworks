@@ -15,7 +15,7 @@
 #include<stdbool.h>
 #include <dirent.h>
 #define PACKET_SIZE 50
-#define TOT_SIZE 2000
+#define TOT_SIZE 200
 
 char* ask_load = "Send Load";
 char* ask_time = "Send Time";
@@ -42,9 +42,9 @@ void input(int sockfd,char buffer[],char total[]){
 
 int main(int argc,char** argv){
     srand((int)time(NULL));
-    for(int i = 0;i < 20;i++)
+    for(int i = 0;i < PACKET_SIZE;i++)
         buffer[i] = '\0';
-    for(int i = 0;i < 200;i++)
+    for(int i = 0;i < TOT_SIZE;i++)
         total[i] = '\0';
     int servport;
     sscanf(argv[1],"%d",&servport);

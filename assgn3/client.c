@@ -13,7 +13,7 @@
 #include<unistd.h>
 #include<stdbool.h>
 #define PACKET_SIZE 50
-#define TOT_SIZE 2000
+#define TOT_SIZE 200
 char buffer[PACKET_SIZE];
 char total[TOT_SIZE];
 void input(int sockfd,char buffer[],char total[]){

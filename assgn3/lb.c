@@ -13,11 +13,14 @@
 #include<unistd.h>
 #include<stdbool.h>
 #include<poll.h>
-#define PACKET_SIZE 20
+#include <time.h>
+#define PACKET_SIZE 50
 #define TOT_SIZE 200
 
 char* ask_load = "Send Load";
 char* ask_time = "Send Time";
+char buffer[PACKET_SIZE];
+char total[TOT_SIZE];
 
 void input(int sockfd,char buffer[],char total[]){
     bool done = false;
@@ -35,57 +38,101 @@ void input(int sockfd,char buffer[],char total[]){
             buffer[i] = '\0';
     }
 }
+void make_server_addr(struct entity s[]){
+    for(int i = 0;i < 3;i++){
+        s[i].serv_addr.sin_family = AF_INET;
+        s[i].serv_addr.sin_port = htons(s[i].port);
+        inet_aton("127.0.0.1",&s[i].serv_addr.sin_addr);
+    }
+}
+
+void getdata(struct entity *s,char* text){
+    int lb_clisockfd;
+    if((lb_clisockfd = socket(AF_INET,SOCK_STREAM,0)) < 0){
+        perror("Cannot create socket for client\n");
+        exit(0);
+    }
+    if(connect(lb_clisockfd,(struct sockaddr*) &s->serv_addr,sizeof(s->serv_addr)) < 0){
+        perror("Connection to server failed\n");
+        exit(0);
+    }
+    strcpy(buffer,text);
+    send(lb_clisockfd,buffer,strlen(buffer)+1,0);
+    for(int i = 0;i < PACKET_SIZE;i++)buffer[i] = '\0';
+    input(lb_clisockfd,buffer,total);
+}
 typedef struct entity{
     int port;
     int servsockfd;
     struct sockaddr_in serv_addr;
 }entity;
+//s[0] --> load balancer
+//s[1] and s[2] --> two loads
 int main(int argc, char** argv){
-    entity s[2],lb;
-    sscanf(argv[1],"%d",&lb.port);
-    sscanf(argv[2],"%d",&s[0].port);
-    sscanf(argv[3],"%d",&s[1].port);
-    
+    for(int i = 0;i < PACKET_SIZE;i++)
+        buffer[i] = '\0';
+    for(int i = 0;i < TOT_SIZE;i++)
+        total[i] = '\0';
+    entity s[3];
+    sscanf(argv[1],"%d",&s[0].port);
+    sscanf(argv[2],"%d",&s[1].port);
+    sscanf(argv[3],"%d",&s[2].port);
+    make_server_addr(s);
     struct sockaddr_in cli_addr;
 
-    if((lb.servsockfd = socket(AF_INET,SOCK_STREAM,0)) < 0){
+    if((s[0].servsockfd = socket(AF_INET,SOCK_STREAM,0)) < 0){
         perror("Cannot create socket for server\n");
         exit(0);
     }
-    lb.serv_addr.sin_family = AF_INET;
-    lb.serv_addr.sin_port = htons(lb.port);
-    lb.serv_addr.sin_addr.s_addr = INADDR_ANY;
-
-    if(bind(lb.servsockfd,(struct sockaddr*)&lb.serv_addr,sizeof(lb.serv_addr)) < 0){
+    if(bind(s[0].servsockfd,(struct sockaddr*)&s[0].serv_addr,sizeof(s[0].serv_addr)) < 0){
         perror("Unable to bind to local address");
         exit(0);
     }
     else{
-        printf("Server Listening on PORT : %d\n",lb.port);
+        printf("Load Balancer Listening on PORT : %d\n",s[0].port);
     }
 
-    listen(lb.servsockfd,5);  
+    listen(s[0].servsockfd,5);  
     
     while(1){
-
-        int cli_len = sizeof(cli_addr);
-        int clisockfd = accept(lb.servsockfd, (struct sockaddr *) &cli_addr,&cli_len);
-        if (clisockfd < 0) {
-			printf("Accept error\n");
-			exit(0);
-		}
-        if(fork() == 0){
         
+        getdata(&s[1],ask_load);
+        int load1 = atoi(total);
+        for(int i = 0;i < TOT_SIZE;i++)total[i] = '\0';
+        getdata(&s[2],ask_load);
+        int load2 = atoi(total);
+        for(int i = 0;i < TOT_SIZE;i++)total[i] = '\0';
+        int serverindex = (load1 > load2) ? 2 : 1;
+        
+        clock_t last_load = clock();
+        int clisockfd;
+        if((clisockfd = socket(AF_INET,SOCK_STREAM,0)) < 0){
+            perror("Cannot create socket for client\n");
+            exit(0);
         }
-        close(clisockfd);
+        int cli_len = sizeof(cli_addr);
+        struct pollfd poll_time;
+        memset( &poll_time,0,sizeof(poll_time));
+        poll_time.fd = clisockfd;
+        poll_time.events = POLLIN;
+        while(clock() - last_load < 5*CLOCKS_PER_SEC){
+            int pollfor = (5 - (clock() - last_load) / CLOCKS_PER_SEC)*1000;
+            if(poll(&poll_time,1,pollfor) == 1){
+                connect(clisockfd,(struct sockaddr*) &s[0].serv_addr,sizeof(s[0].serv_addr));
+                if(fork() == 0){
+                    close(s[0].servsockfd);
+                    getdata(&s[serverindex],ask_time);
+                    strcpy(buffer,total);
+                    send(clisockfd,buffer,strlen(buffer)+1,0);
+                    for(int i = 0;i < PACKET_SIZE;i++)buffer[i] = '\0';
+                    for(int i = 0;i < TOT_SIZE;i++)total[i] = '\0';
+                    close(clisockfd);  
+                    exit(0);
+                }
+                close(clisockfd);
+            }
+        }
         
     }
-    // struct pollfd poll_time;
-    // memset( &poll_time,0,sizeof(poll_time));
-    // poll_time.fd = sockfd;
-    // poll_time.events = POLLIN;
-    
-    
-
-
+     
 }
