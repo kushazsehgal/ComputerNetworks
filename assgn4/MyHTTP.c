@@ -125,29 +125,14 @@ int main(){
                 send(clifd, response, strlen(response)+1, 0);
                 char file_content[1000];
                 memset(file_content, 0, 1000);
-                char c;
-                // while(read(fd, file_content, 1000) > 0){
-                //     // printf("Sending file content: %s\n", file_content);
-                //     send(clifd, file_content, 1000, 0);
-                //     memset(file_content, 0, 1000);
-                // }
-                int j=0;
-                // printf("file content\n");
-                while(read(fd, &c, 1)>0){
-                    file_content[j++] = c;
-                    if(j == 1000){
-                        // printf("%s", file_content);
-                        send(clifd, file_content, 1000, 0);
-                        memset(file_content, 0, 1000);
-                        j=0;
-                    }
-                }
-                if(j > 0){
-                    file_content[j] = '\0';
-                    // printf("%s", file_content);
-                    send(clifd, file_content, j, 0);
-                }
                 close(fd);
+                FILE* fp = fopen(path+1, "rb");
+                int n;
+                while((n = fread(file_content, 1, 1000, fp)) > 0){
+                    send(clifd, file_content, n, 0);
+                    memset(file_content, 0, 1000);
+                }
+                fclose(fp);
             }
             else{
                 printf("Invalid request\n");
@@ -162,3 +147,4 @@ int main(){
 // GET http://127.0.0.1/file.txt:8080
 // GET http://127.0.0.1/Assgn-4.pdf:8080
 // GET http://127.0.0.1/sample.html:8080
+// GET http://127.0.0.1/img.jpg:8080

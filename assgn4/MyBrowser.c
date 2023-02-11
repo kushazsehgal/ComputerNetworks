@@ -125,16 +125,15 @@ int main(){
                 printf("Status: OK\n");
                 char filename[1000];
                 sprintf(filename, "MyOwnBrowser_%d.%s", getpid(), file_extension);
-                int fd = open(filename, O_CREAT | O_WRONLY, 0777);
+                FILE* fp = fopen(filename, "wb");
                 char content[1000];
-                // printf("Content:\n");
                 memset(content, 0, 1000);
-                while(recv(sockfd, content, 1000, 0) > 0){
-                    // printf("%s", content);
-                    write(fd, content, strlen(content));
+                int n;
+                while((n = recv(sockfd, content, 1000, 0)) > 0){
+                    fwrite(content, 1, n, fp);
                     memset(content, 0, 1000);
                 }
-                close(fd);
+                fclose(fp);
                 pid_t pid = fork();
                 if(pid == 0){
                     if(strcmp(file_extension, "html") == 0){
@@ -165,10 +164,120 @@ int main(){
                 printf("Status: Unknown\n");
             }
         }else if(strcmp(request_type, "PUT") == 0){
+            char* url = http_command + 11;
+            char* host = strtok(url, "/");
+            // char* path = strtok(NULL, ":");
+            // char* port = strtok(NULL, " ");
+            // char* version = strtok(NULL, " ");
+            // char* filename;
+            // if(version[0] != 'H'){
+            //     filename = version;
+            //     version = NULL;
+            // }
+            char* path, *port, *version, *filename;
+            if(strchr(host, ':') != NULL){
+                path = strtok(NULL, ":");
+                port = strtok(NULL, " ");
+                version = strtok(NULL, " ");
+                if(version[0] != 'H'){
+                    filename = version;
+                    version = NULL;
+                }else{
+                    filename = strtok(NULL, " ");
+                }
+            }else{
+                path = strtok(NULL, " ");
+                port = NULL;
+                version = strtok(NULL, " ");
+                if(version[0] != 'H'){
+                    filename = version;
+                    version = NULL;
+                }else{
+                    filename = strtok(NULL, " ");
+                }
+            }
+            if(port == NULL){
+                port = "80";
+            }
+            if(version == NULL){
+                version = "HTTP/1.1";
+            }
+            printf("Host: %s\n", host);
+            printf("Path: %s\n", path);
+            printf("Port: %s\n", port);
+            printf("Version: %s\n", version);
+            printf("Filename: %s\n", filename);
+            // serv_addr.sin_port = htons(atoi(port));
+            // if(inet_pton(AF_INET, host, &serv_addr.sin_addr) <= 0){
+            //     printf("Invalid address\n");
+            //     exit(1);
+            // }
+            // if(connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0){
+            //     printf("Connection failed\n");
+            //     exit(1);
+            // }
+            char* extension = strtok(filename, ".");
+            extension = strtok(NULL, ".");
+            char accept_type[100];
+            if(strcmp(extension, "html") == 0){
+                strcpy(accept_type, "text/html");
+            }else if(strcmp(extension, "jpg") == 0){
+                strcpy(accept_type, "image/jpeg");
+            }else if(strcmp(extension, "pdf") == 0){
+                strcpy(accept_type, "application/pdf");
+            }else{
+                strcpy(accept_type, "text/*");
+            }
+            char request[1000];
+            time_t ct;
+            struct tm* tm;
+            char date[100];
+            time(&ct);
+            tm = localtime(&ct);
+            strftime(date, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
+            time_t ct2;
+            ct2 = ct - 2*24*60*60;
+            tm = localtime(&ct2);
+            char date2[100];
+            strftime(date2, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
+            sprintf(request, "PUT /%s/%s %s\nHost: %s\nConnection: close\nDate: %s\nAccept: %s\nAccept-Language: en-us\nIf-Modified-Since: %s\nContent-language: en-us\nContent-length: %d\nContent-type: %s\n", path, filename, version, host, date, accept_type, date2, sizeof(request), accept_type);
+            printf("Request\n%s", request);
+            
+            int fd = open(filename, O_RDONLY);
+            if(fd < 0){
+                printf("File not found\n");
+                exit(1);
+            }
 
-        }else{
+            // send(sockfd, request, strlen(request)+1, 0);
+
+            int i=0;
+            char c;
+            char content[1000];
+            memset(content, 0, 1000);
+            printf("Content:\n");
+            while(read(fd, &c, 1) > 0){
+                content[i++] = c;
+                if(i == 1000){
+                    printf("%s", content);
+                    send(sockfd, content, 1000, 0);
+                    memset(content, 0, 1000);
+                    i=0;
+                }
+            }
+            if(i > 0){
+                printf("%s", content);
+                send(sockfd, content, i, 0);
+            }
+            close(fd);
+
+
+            
+        }else{  
             printf("Invalid command\n");
         }
         close(sockfd);
     }
 }
+
+//PUT http://127.0.0.1/docs:8080 file.txt
