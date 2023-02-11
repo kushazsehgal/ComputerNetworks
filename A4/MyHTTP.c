@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 int main(){
     int sockfd, clifd;
@@ -36,11 +37,12 @@ int main(){
             printf("Accept error\n");
             exit(1);
         }
+        printf("Client connectted from %s:%d with fd %d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), clifd);
         if(fork() == 0){
             close(sockfd);
             char http_request[1000];
             recv(clifd, http_request, 1000, 0);
-            printf("Request recvd\n%s\n", http_request);
+            // printf("Request recvd\n%s\n", http_request);
             // split the request into lines
             char* lines[100];
             char* line = strtok(http_request, "\n");
@@ -50,11 +52,11 @@ int main(){
                 i++;
                 line = strtok(NULL, "\n");
             }
-            if(i == 0){
-                close(clifd);
-                printf("Empty request\n");
-                exit(1);
-            }
+            // if(i == 0){
+            //     close(clifd);
+            //     printf("Empty request\n");
+            //     exit(1);
+            // }
             // request line
             if(strncmp(lines[0], "GET", 3) == 0){
                 char* path = strtok(lines[0], " ");
@@ -63,17 +65,20 @@ int main(){
                 if(version == NULL){
                     version = "HTTP/1.1";
                 }
-                printf("Path: %s\n", path);
-                printf("Version: %s\n", version);
+                // printf("Path: %s\n", path);
+                // printf("Version: %s\n", version);
 
                 // check if file exists
-                FILE* fp = fopen(path+1, "r");
-                if(fp == NULL){
+                int fd = open(path+1, O_RDONLY);
+                if(fd < 0){
                     printf("File not found\n");
+                    char* response = "HTTP/1.1 404 Not Found\n";
+                    send(clifd, response, strlen(response)+1, 0);
                     close(clifd);
                     exit(1);
                 }
                 // headers
+                char content_type[100] = "text/*";
                 for(int i=1; i<100; i++){
                     if(lines[i] == NULL) break;
                     char* header = strtok(lines[i], ":");
@@ -88,11 +93,61 @@ int main(){
                         time_t last_modified = st.st_mtime;
                         if(last_modified <= if_modified_since){
                             printf("File not modified since %s\n", value);
+                            char* response = "HTTP/1.1 304 Not Modified\n";
+                            send(clifd, response, strlen(response)+1, 0);
                             close(clifd);
                             exit(1);
                         }
                     }
+                    else if(strcmp(header, "Content-Type") == 0){
+                        strcpy(content_type, value);
+                    }
                 }
+                // send response
+                char response[10000];
+                time_t ct;
+                struct tm* tm;
+                time(&ct);
+                tm = localtime(&ct);
+                time_t ct2;
+                ct2 = ct + 3*24*60*60;
+                tm = localtime(&ct2);
+                char expire_date[100];
+                struct stat st;
+                stat(path+1, &st);
+                time_t last_modified = st.st_mtime;
+                strftime(expire_date, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
+                char last_modified_date[100];
+                tm = localtime(&last_modified);
+                strftime(last_modified_date, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
+                sprintf(response, "%s 200 OK\nExpires: %s\nCache-control: no-store\nContent-Language: en-us\nContent-length: %d\nContent-type: %s\nLast modified: %s\n", version, expire_date, 1000, content_type, last_modified_date);
+                // printf("Response:\n%s\n", response);
+                send(clifd, response, strlen(response)+1, 0);
+                char file_content[1000];
+                memset(file_content, 0, 1000);
+                char c;
+                // while(read(fd, file_content, 1000) > 0){
+                //     // printf("Sending file content: %s\n", file_content);
+                //     send(clifd, file_content, 1000, 0);
+                //     memset(file_content, 0, 1000);
+                // }
+                int j=0;
+                // printf("file content\n");
+                while(read(fd, &c, 1)>0){
+                    file_content[j++] = c;
+                    if(j == 1000){
+                        // printf("%s", file_content);
+                        send(clifd, file_content, 1000, 0);
+                        memset(file_content, 0, 1000);
+                        j=0;
+                    }
+                }
+                if(j > 0){
+                    file_content[j] = '\0';
+                    // printf("%s", file_content);
+                    send(clifd, file_content, j, 0);
+                }
+                close(fd);
             }
             else{
                 printf("Invalid request\n");
@@ -105,3 +160,5 @@ int main(){
     return 0;
 }
 // GET http://127.0.0.1/file.txt:8080
+// GET http://127.0.0.1/Assgn-4.pdf:8080
+// GET http://127.0.0.1/sample.html:8080
