@@ -74,16 +74,17 @@ int main(){
             }else{
                 strcpy(accept_type, "text/*");
             }
-            // serv_addr.sin_port = htons(atoi(port));
-            // if(inet_pton(AF_INET, host, &serv_addr.sin_addr) <= 0){
-            //     printf("Invalid address\n");
-            //     exit(1);
-            // }
 
-            // if(connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0){
-            //     printf("Connection failed\n");
-            //     exit(1);
-            // }
+            serv_addr.sin_port = htons(atoi(port));
+            if(inet_pton(AF_INET, host, &serv_addr.sin_addr) <= 0){
+                printf("Invalid address\n");
+                exit(1);
+            }
+
+            if(connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0){
+                printf("Connection failed\n");
+                exit(1);
+            }
 
             char request[1000];
             time_t ct;
@@ -97,9 +98,15 @@ int main(){
             tm = localtime(&ct2);
             char date2[100];
             strftime(date2, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
-            sprintf(request, "GET %s %s\nHost: %s\nConnection: close\nDate: %s\nAccept: %s\nAccept-Language: en-us\nIf-Modified-Since: %s\nContent-language: en-us\nContent-length: %d\nContent-type: %s\n", path, version, host, date, accept_type, date2, 500, accept_type);
+            sprintf(request, "GET %s %s\nHost: %s\nConnection: close\nDate: %s\nAccept: %s\nAccept-Language: en-us\nIf-Modified-Since: %s\nContent-language: en-us\nContent-length: %d\nContent-type: %s\n", path, version, host, date, accept_type, date2, sizeof(request), accept_type);
             printf("Request\n%s", request);
+            send(sockfd, request, strlen(request)+1, 0);
+            char response[1000];
+            recv(sockfd, response, 1000, 0);
+            printf("Response\n%s", response);
+
         }else if(strcmp(request_type, "PUT") == 0){
+
         }else{
             printf("Invalid command\n");
         }
