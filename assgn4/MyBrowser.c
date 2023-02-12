@@ -165,17 +165,9 @@ int main(){
             }
         }else if(strcmp(request_type, "PUT") == 0){
             char* url = http_command + 11;
-            char* host = strtok(url, "/");
-            // char* path = strtok(NULL, ":");
-            // char* port = strtok(NULL, " ");
-            // char* version = strtok(NULL, " ");
-            // char* filename;
-            // if(version[0] != 'H'){
-            //     filename = version;
-            //     version = NULL;
-            // }
-            char* path, *port, *version, *filename;
-            if(strchr(host, ':') != NULL){
+            char* host, *path, *port, *version, *filename;
+            if(strchr(url, ':') != NULL){
+                host = strtok(url, "/");
                 path = strtok(NULL, ":");
                 port = strtok(NULL, " ");
                 version = strtok(NULL, " ");
@@ -186,6 +178,7 @@ int main(){
                     filename = strtok(NULL, " ");
                 }
             }else{
+                host = strtok(url, "/");
                 path = strtok(NULL, " ");
                 port = NULL;
                 version = strtok(NULL, " ");
@@ -202,20 +195,25 @@ int main(){
             if(version == NULL){
                 version = "HTTP/1.1";
             }
-            printf("Host: %s\n", host);
-            printf("Path: %s\n", path);
-            printf("Port: %s\n", port);
-            printf("Version: %s\n", version);
-            printf("Filename: %s\n", filename);
-            // serv_addr.sin_port = htons(atoi(port));
-            // if(inet_pton(AF_INET, host, &serv_addr.sin_addr) <= 0){
-            //     printf("Invalid address\n");
-            //     exit(1);
-            // }
-            // if(connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0){
-            //     printf("Connection failed\n");
-            //     exit(1);
-            // }
+            // printf("Host: %s\n", host);
+            // printf("Path: %s\n", path);
+            // printf("Port: %s\n", port);
+            // printf("Version: %s\n", version);
+            // printf("Filename: %s\n", filename);
+            serv_addr.sin_port = htons(atoi(port));
+            if(inet_pton(AF_INET, host, &serv_addr.sin_addr) <= 0){
+                printf("Invalid address\n");
+                exit(1);
+            }
+            if(connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0){
+                printf("Connection failed\n");
+                exit(1);
+            }
+            FILE* fp = fopen(filename, "rb");
+            if(fp == NULL){
+                printf("File not found\n");
+                exit(1);
+            }
             char* extension = strtok(filename, ".");
             extension = strtok(NULL, ".");
             char accept_type[100];
@@ -240,39 +238,46 @@ int main(){
             tm = localtime(&ct2);
             char date2[100];
             strftime(date2, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
-            sprintf(request, "PUT /%s/%s %s\nHost: %s\nConnection: close\nDate: %s\nAccept: %s\nAccept-Language: en-us\nIf-Modified-Since: %s\nContent-language: en-us\nContent-length: %d\nContent-type: %s\n", path, filename, version, host, date, accept_type, date2, sizeof(request), accept_type);
+            sprintf(request, "PUT /%s/%s.%s %s\nHost: %s\nConnection: close\nDate: %s\nAccept: %s\nAccept-Language: en-us\nIf-Modified-Since: %s\nContent-language: en-us\nContent-length: %d\nContent-type: %s\n", path, filename, extension, version, host, date, accept_type, date2, sizeof(request), accept_type);
             printf("Request\n%s", request);
             
-            int fd = open(filename, O_RDONLY);
-            if(fd < 0){
-                printf("File not found\n");
-                exit(1);
-            }
+            send(sockfd, request, strlen(request)+1, 0);
 
-            // send(sockfd, request, strlen(request)+1, 0);
-
-            int i=0;
-            char c;
             char content[1000];
             memset(content, 0, 1000);
-            printf("Content:\n");
-            while(read(fd, &c, 1) > 0){
-                content[i++] = c;
-                if(i == 1000){
-                    printf("%s", content);
-                    send(sockfd, content, 1000, 0);
-                    memset(content, 0, 1000);
-                    i=0;
-                }
-            }
-            if(i > 0){
-                printf("%s", content);
-                send(sockfd, content, i, 0);
-            }
-            close(fd);
-
-
             
+            int n;
+            printf("Content\n");
+            while((n = fread(content, 1, 1000, fp)) > 0){
+                printf("%s", content);
+                send(sockfd, content, n, 0);
+                memset(content, 0, 1000);
+            }    
+            // printf("\n");
+            fclose(fp);
+
+            char response[1000];
+            memset(response, 0, 1000);
+            recv(sockfd, response, 1000, 0);
+            printf("Response\n%s", response);
+            version = strtok(response, " ");
+            char* status = strtok(NULL, " ");
+            if(strcmp(status, "200") == 0){
+                printf("Status: OK\n");
+            }
+            else if(strcmp(status, "304") == 0){
+                printf("Status: Not Modified\n");
+            }
+            else if(strcmp(status, "404") == 0){
+                printf("Status: Not Found\n");
+            }
+            else if(strcmp(status, "500") == 0){
+                printf("Status: Internal Server Error\n");
+            }
+            else{
+                printf("Status: Unknown\n");
+            }
+
         }else{  
             printf("Invalid command\n");
         }

@@ -141,18 +141,20 @@ int main(){
                 if(version == NULL){
                     version = "HTTP/1.1";
                 }
-                // printf("Path: %s\n", path);
-                // printf("Version: %s\n", version);
+                printf("Path: %s\n", path);
+                printf("Version: %s\n", version);
                 FILE* fp = fopen(path+1, "wb");
                 char file_content[1000];
                 memset(file_content, 0, 1000);
-
                 int n;
+                printf("Receiving file\n");
                 while((n = recv(clifd, file_content, 1000, 0)) > 0){
+                    printf("%s", file_content);
                     fwrite(file_content, 1, n, fp);
                     memset(file_content, 0, 1000);
                 }
                 fclose(fp);
+                printf("\nFile received\n");
                 // headers
                 char content_type[100] = "text/*";
                 for(int i=1; i<100; i++){
@@ -191,7 +193,7 @@ int main(){
     }
     return 0;
 }
-// GET http://127.0.0.1/file.txt:8080
+// GET http://127.0.0.1/docs/file.txt:8080
 // GET http://127.0.0.1/Assgn-4.pdf:8080
 // GET http://127.0.0.1/sample.html:8080
 // GET http://127.0.0.1/img.jpg:8080
