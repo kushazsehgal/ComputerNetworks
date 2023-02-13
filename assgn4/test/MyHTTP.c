@@ -41,7 +41,8 @@ int main(){
         if(fork() == 0){
             close(sockfd);
             char http_request[1000];
-            recv(clifd, http_request, 1000, 0);
+            int n = recv(clifd, http_request, 1000, 0);
+            printf("received %d bytes request\n", n);
             // printf("Request recvd\n%s\n", http_request);
             // split the request into lines
             char* lines[100];
@@ -146,13 +147,18 @@ int main(){
                 FILE* fp = fopen(path+1, "wb");
                 char file_content[1000];
                 memset(file_content, 0, 1000);
-                int n;
-                printf("Receiving file\n");
-                while((n = recv(clifd, file_content, 1000, 0)) > 0){
-                    printf("%s", file_content);
-                    fwrite(file_content, 1, n, fp);
-                    memset(file_content, 0, 1000);
-                }
+                // int n;
+                // printf("Receiving file\n");
+                // while((n = recv(clifd, file_content, 1000, 0)) > 0){
+                //     printf("%s", file_content);
+                //     fwrite(file_content, 1, n, fp);
+                //     memset(file_content, 0, 1000);
+                // }
+                n = recv(clifd, file_content, 1000, 0);
+                // printf("n = %d\n", n);
+                printf("recvd %d bytes content\n", n);
+                printf("%s\n", file_content);
+                fwrite(file_content, 1, 1000, fp);
                 fclose(fp);
                 printf("\nFile received\n");
                 // headers
@@ -185,6 +191,7 @@ int main(){
                 strftime(last_modified_date, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
                 sprintf(response, "%s 200 OK\nExpires: %s\nCache-control: no-store\nContent-Language: en-us\nContent-length: %d\nContent-type: %s\nLast modified: %s\n", version, expire_date, 1000, content_type, last_modified_date);
                 // printf("Response:\n%s\n", response);
+                send(clifd, response, strlen(response)+1, 0);
             }
             close(clifd);
             exit(0);

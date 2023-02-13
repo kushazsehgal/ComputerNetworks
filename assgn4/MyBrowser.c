@@ -227,7 +227,7 @@ int main(){
                 strcpy(accept_type, "text/*");
             }
             char request[1000];
-            time_t ct;
+                time_t ct;
             struct tm* tm;
             char date[100];
             time(&ct);
@@ -240,20 +240,26 @@ int main(){
             strftime(date2, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
             sprintf(request, "PUT /%s/%s.%s %s\nHost: %s\nConnection: close\nDate: %s\nAccept: %s\nAccept-Language: en-us\nIf-Modified-Since: %s\nContent-language: en-us\nContent-length: %d\nContent-type: %s\n", path, filename, extension, version, host, date, accept_type, date2, sizeof(request), accept_type);
             printf("Request\n%s", request);
-            
-            send(sockfd, request, strlen(request)+1, 0);
-
+            request[strlen(request)] = '\0';
+            int n = send(sockfd, request, strlen(request)+1, 0);
+            printf("sent %d bytes for request\n", n);
             char content[1000];
             memset(content, 0, 1000);
             
-            int n;
-            printf("Content\n");
-            while((n = fread(content, 1, 1000, fp)) > 0){
-                printf("%s", content);
-                send(sockfd, content, n, 0);
-                memset(content, 0, 1000);
-            }    
+            // int n;
+            // printf("Content\n");
+            // while((n = fread(content, 1, 1000, fp)) > 0){
+            //     printf("%s", content);
+            //     send(sockfd, content, n, 0);
+            //     memset(content, 0, 1000);
+            // }    
             // printf("\n");
+            fread(content, 1, 1000, fp);
+            printf("content\n%s\n", content);
+            // send(sockfd, content, strlen(content)+1, 0);
+            content[strlen(content)] = '\0';
+            n = send(sockfd, content, strlen(content)+1, 0);
+            printf("sent %d bytes for content\n", n);
             fclose(fp);
 
             char response[1000];
