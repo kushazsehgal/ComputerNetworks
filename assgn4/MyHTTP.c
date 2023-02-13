@@ -1,14 +1,70 @@
+/////////////////////////////////////////
+// Networks Lab Assignment 4 : My HTTP
+// Name : Kushaz Sehgal
+// Roll Number : 20CS30030
+// Name : Shivam Raj
+// Roll Number : 20CS10056
+//////////////////////////////////////////
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
-#include <time.h>
-#include <sys/stat.h>
+#include <netinet/in.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <time.h>
+#include <arpa/inet.h>
+#include<stdbool.h>
+#define BUFFER_SIZE 1000000
+#define PACKET_SIZE 1000
 
-int main(){
+char BUFFER[PACKET_SIZE];
+char TOT_BUFFER[BUFFER_SIZE];
+
+long int findSize(char file_name[]){
+    FILE* fp = fopen(file_name, "r");
+    if (fp == NULL) {
+        return -1;
+    }  
+    fseek(fp, 0L, SEEK_END);
+    long int res = ftell(fp);
+    fclose(fp);
+    return res;
+}
+void get_time(char *time_str, char* expiry_time){
+    time_t ct, ct2;
+    struct tm* tm;
+    time(&ct);
+    tm = localtime(&ct);
+    strftime(time_str, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
+    time(&ct2);
+    ct2 = ct + 3*24*60*60;
+    tm = gmtime(&ct2);
+    strftime(expiry_time, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
+}
+void get_accept_type(char* accept_type, char* path){
+    char* ext = strrchr(path, '.');
+    if(ext == NULL){
+        strcpy(accept_type, "text/*");
+        return;
+    }
+    if(strcmp(ext, ".html") == 0 || strcmp(ext, ".htm") == 0){
+        strcpy(accept_type, "text/html");
+    }
+    else if(strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0){
+        strcpy(accept_type, "image/jpeg");
+    }
+    else if(strcmp(ext, ".pdf") == 0){
+        strcpy(accept_type, "application/pdf");
+    }
+    else{
+        strcpy(accept_type, "text/*");
+    }
+}
+
+int main(int argc, char* argv[]){
     int sockfd, clifd;
     struct sockaddr_in serv_addr, cli_addr;
     socklen_t cli_len;
@@ -21,8 +77,12 @@ int main(){
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(8080);
 
+    if(argc == 2){
+        serv_addr.sin_port = htons(atoi(argv[1]));
+    }
+
     if(bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0){
-        printf("Bind error\n");
+        printf("Could not bind on port %d\n", ntohs(serv_addr.sin_port));
         exit(1);
     }
 
@@ -30,168 +90,156 @@ int main(){
         printf("Listen error\n");
         exit(1);
     }
-
+    FILE* log = fopen("AccessLog.txt","a");
     while(1){
+        memset(BUFFER, 0, PACKET_SIZE);
+        memset(TOT_BUFFER, 0, BUFFER_SIZE);
         clifd = accept(sockfd, (struct sockaddr*)&cli_addr, &cli_len);
         if(clifd < 0){
             printf("Accept error\n");
             exit(1);
         }
-        printf("Client connectted from %s:%d with fd %d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), clifd);
+        printf("Client connected from %s:%d with fd %d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), clifd);
         if(fork() == 0){
             close(sockfd);
-            char http_request[1000];
-            recv(clifd, http_request, 1000, 0);
-            // printf("Request recvd\n%s\n", http_request);
-            // split the request into lines
-            char* lines[100];
-            char* line = strtok(http_request, "\n");
-            int i=0;
-            while(line != NULL){
-                lines[i] = line;
-                i++;
-                line = strtok(NULL, "\n");
-            }
-            // if(i == 0){
-            //     close(clifd);
-            //     printf("Empty request\n");
-            //     exit(1);
-            // }
-            // request line
-            if(strncmp(lines[0], "GET", 3) == 0){
-                char* path = strtok(lines[0], " ");
-                path = strtok(NULL, " ");
-                char* version = strtok(NULL, " ");
-                if(version == NULL){
-                    version = "HTTP/1.1";
+            int bytes_read = 0;
+            int total_bytes_read = 0;
+            bool header_found = false;
+            char* end_of_header;
+            int j = 0;
+            while((bytes_read = recv(clifd, BUFFER, PACKET_SIZE, 0)) > 0){
+                total_bytes_read += bytes_read;
+                for(int k=0; k<bytes_read; k++){
+                    TOT_BUFFER[j++] = BUFFER[k];
                 }
-                // printf("Path: %s\n", path);
-                // printf("Version: %s\n", version);
-
-                // check if file exists
-                int fd = open(path+1, O_RDONLY);
-                if(fd < 0){
+                memset(BUFFER, 0, PACKET_SIZE);
+                end_of_header = strstr(TOT_BUFFER, "\r\n\r\n");
+                if(end_of_header != NULL){
+                    end_of_header += 4;
+                    break;
+                }
+            }
+            int file_bytes_read = total_bytes_read - (end_of_header - TOT_BUFFER);
+            char http_request[PACKET_SIZE];
+            char *temp = TOT_BUFFER;
+            while(temp != end_of_header){
+                http_request[temp - TOT_BUFFER] = *temp;
+                temp++;
+            }
+            http_request[temp - TOT_BUFFER] = '\0';
+            printf("Request:\n%s\n",http_request);
+            time_t t;
+            t = time(NULL);
+            struct tm tm = *localtime(&t);
+            if(strncmp(http_request, "GET", 3) == 0){
+                // get file path
+                char file_path[PACKET_SIZE];
+                sscanf(http_request, "GET %s", file_path);
+                fprintf(log,"%d/%d/%d::%d:%d:%d::%s::%d::%s::%s\n",tm.tm_mday, tm.tm_mon+1, tm.tm_year+1900,tm.tm_hour, tm.tm_min, tm.tm_sec,inet_ntoa(cli_addr.sin_addr),ntohs(cli_addr.sin_port),"GET",file_path);
+                FILE* fp = fopen(file_path+1, "rb");
+                if(fp == NULL){
                     printf("File not found\n");
-                    char* response = "HTTP/1.1 404 Not Found\n";
-                    send(clifd, response, strlen(response)+1, 0);
+                    char* not_found = "HTTP/1.1 404 Not Found\r\n\r\n";
+                    send(clifd, not_found, strlen(not_found), 0);
                     close(clifd);
                     exit(1);
                 }
-                // headers
-                char content_type[100] = "text/*";
-                for(int i=1; i<100; i++){
-                    if(lines[i] == NULL) break;
-                    char* header = strtok(lines[i], ":");
-                    char* value = strtok(NULL, ":");
-                    if(header == NULL || value == NULL) break;
-                    if(strcmp(header, "If-Modified-Since") == 0){
-                        struct tm tm;
-                        strptime(value, "%a, %d %b %Y %H:%M:%S %Z", &tm);
-                        time_t if_modified_since = mktime(&tm);
-                        struct stat st;
-                        stat(path+1, &st);
-                        time_t last_modified = st.st_mtime;
-                        if(last_modified <= if_modified_since){
-                            printf("File not modified since %s\n", value);
-                            char* response = "HTTP/1.1 304 Not Modified\n";
-                            send(clifd, response, strlen(response)+1, 0);
-                            close(clifd);
-                            exit(1);
-                        }
-                    }
-                    else if(strcmp(header, "Content-Type") == 0){
-                        strcpy(content_type, value);
+                // check for If-Modified-Since
+                char* if_modified_since = strstr(http_request, "If-Modified-Since");
+                char last_modified[100];
+                if(if_modified_since != NULL){
+                    // get the date
+                    char date[100];
+                    sscanf(if_modified_since, "If-Modified-Since: %s", date);
+                    struct tm tm;
+                    strptime(date, "%a, %d %b %Y %H:%M:%S %Z", &tm);
+                    time_t if_modified_since_time = mktime(&tm);
+                    // get the last modified time of the file
+                    struct stat st;
+                    stat(file_path+1, &st);
+                    time_t last_modified_time = st.st_mtime;
+                    strftime(last_modified, 100, "%a, %d %b %Y %H:%M:%S %Z", localtime(&last_modified_time));
+                    if(last_modified_time <= if_modified_since_time){
+                        // file not modified
+                        char* not_modified = "HTTP/1.1 304 Not Modified\r\n\r\n";
+                        send(clifd, not_modified, strlen(not_modified), 0);
+                        close(clifd);
+                        exit(1);
                     }
                 }
-                // send response
-                char response[10000];
-                time_t ct;
-                struct tm* tm;
-                time(&ct);
-                tm = localtime(&ct);
-                time_t ct2;
-                ct2 = ct + 3*24*60*60;
-                tm = localtime(&ct2);
-                char expire_date[100];
-                struct stat st;
-                stat(path+1, &st);
-                time_t last_modified = st.st_mtime;
-                strftime(expire_date, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
-                char last_modified_date[100];
-                tm = localtime(&last_modified);
-                strftime(last_modified_date, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
-                sprintf(response, "%s 200 OK\nExpires: %s\nCache-control: no-store\nContent-Language: en-us\nContent-length: %d\nContent-type: %s\nLast modified: %s\n", version, expire_date, 1000, content_type, last_modified_date);
-                // printf("Response:\n%s\n", response);
-                send(clifd, response, strlen(response)+1, 0);
-                char file_content[1000];
-                memset(file_content, 0, 1000);
-                close(fd);
-                FILE* fp = fopen(path+1, "rb");
-                int n;
-                while((n = fread(file_content, 1, 1000, fp)) > 0){
-                    send(clifd, file_content, n, 0);
-                    memset(file_content, 0, 1000);
+                char http_response[PACKET_SIZE];
+                sprintf(http_response, "HTTP/1.1 200 OK\r\n");
+                char time_str[100], expiry_time[100];
+                get_time(time_str, expiry_time);
+                sprintf(http_response+strlen(http_response), "Expires: %s\r\n", expiry_time);
+                sprintf(http_response+strlen(http_response), "Cache-Control: no-store\r\n");
+                sprintf(http_response+strlen(http_response), "Content-language: en-us\r\n");
+                // get file size in bytes
+                fseek(fp, 0, SEEK_END);
+                int file_size = ftell(fp);
+                fseek(fp, 0, SEEK_SET);
+                sprintf(http_response+strlen(http_response), "Content-Length: %d\r\n", file_size);
+                // get accept type
+                char accept_type[100];
+                get_accept_type(accept_type, file_path);
+                sprintf(http_response+strlen(http_response), "Content-Type: %s\r\n", accept_type);
+                sprintf(http_response+strlen(http_response), "Last-Modified: %s\r\n", last_modified);
+                sprintf(http_response+strlen(http_response), "\r\n");
+
+                int nbytes = send(clifd, http_response, strlen(http_response), 0);
+                
+                // send file in chunks of 1024 bytes
+                memset(BUFFER, 0, PACKET_SIZE);
+                while((nbytes = fread(BUFFER, 1, PACKET_SIZE, fp)) > 0){
+                    send(clifd, BUFFER, nbytes, 0);
+                    memset(BUFFER, 0, PACKET_SIZE);
                 }
                 fclose(fp);
             }
-            else if(strncmp(lines[0], "PUT", 3) == 0){
-                char* path = strtok(lines[0], " ");
-                path = strtok(NULL, " ");
-                char* version = strtok(NULL, " ");
-                if(version == NULL){
-                    version = "HTTP/1.1";
+            else if(strncmp(http_request, "PUT", 3) == 0){
+                char file_path[PACKET_SIZE];
+                sscanf(http_request, "PUT %s", file_path);
+                fprintf(log,"%d/%d/%d::%d:%d:%d::%s::%d::%s::%s\n",tm.tm_mday, tm.tm_mon+1, tm.tm_year+1900,tm.tm_hour, tm.tm_min, tm.tm_sec,inet_ntoa(cli_addr.sin_addr),ntohs(cli_addr.sin_port),"PUT",file_path);
+                FILE* fp = fopen(file_path+1, "wb");
+                if(fp == NULL){
+                    printf("File not found\n");
+                    char* not_found = "HTTP/1.1 404 Not Found\r\n\r\n";
+                    send(clifd, not_found, strlen(not_found), 0);
+                    printf("Request sent\n");
+                    close(clifd);
+                    exit(1);
                 }
-                // printf("Path: %s\n", path);
-                // printf("Version: %s\n", version);
-                FILE* fp = fopen(path+1, "wb");
-                char file_content[1000];
-                memset(file_content, 0, 1000);
+                // get content length
+                char* content_length = strstr(http_request, "Content-Length");
+                int content_length_val;
+                sscanf(content_length, "Content-Length: %d", &content_length_val);
 
-                int n;
-                while((n = recv(clifd, file_content, 1000, 0)) > 0){
-                    fwrite(file_content, 1, n, fp);
-                    memset(file_content, 0, 1000);
+                char http_response[PACKET_SIZE];
+                sprintf(http_response, "HTTP/1.1 200 OK\r\n");
+                
+                // // receive file in chunks of 1024 bytes
+                char file_content[PACKET_SIZE];
+                memset(file_content, 0, PACKET_SIZE);
+                int nbytes;
+                int iters = 0;
+                int total_file_bytes_read = 0;
+                if(file_bytes_read > 0){
+                    fwrite(end_of_header, 1, file_bytes_read, fp);
+                    total_file_bytes_read += file_bytes_read;
+                }
+                while(total_file_bytes_read < content_length_val){
+                    nbytes = recv(clifd, file_content, PACKET_SIZE - 1, 0);
+                    total_file_bytes_read += nbytes;
+                    fwrite(file_content, 1, nbytes, fp);
+                    memset(file_content, 0, PACKET_SIZE);
                 }
                 fclose(fp);
-                // headers
-                char content_type[100] = "text/*";
-                for(int i=1; i<100; i++){
-                    if(lines[i] == NULL) break;
-                    char* header = strtok(lines[i], ":");
-                    char* value = strtok(NULL, ":");
-                    if(header == NULL || value == NULL) break;
-                    if(strcmp(header, "Content-Type") == 0){
-                        strcpy(content_type, value);
-                    }
-                }
-                // send response
-                char response[10000];
-                time_t ct;
-                struct tm* tm;
-                time(&ct);
-                tm = localtime(&ct);
-                time_t ct2;
-                ct2 = ct + 3*24*60*60;
-                tm = localtime(&ct2);
-                char expire_date[100];
-                struct stat st;
-                stat(path+1, &st);
-                time_t last_modified = st.st_mtime;
-                strftime(expire_date, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
-                char last_modified_date[100];
-                tm = localtime(&last_modified);
-                strftime(last_modified_date, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
-                sprintf(response, "%s 200 OK\nExpires: %s\nCache-control: no-store\nContent-Language: en-us\nContent-length: %d\nContent-type: %s\nLast modified: %s\n", version, expire_date, 1000, content_type, last_modified_date);
-                // printf("Response:\n%s\n", response);
+                send(clifd, http_response, strlen(http_response), 0);
             }
             close(clifd);
             exit(0);
         }
         close(clifd);
     }
-    return 0;
+    fclose(log);
 }
-// GET http://127.0.0.1/file.txt:8080
-// GET http://127.0.0.1/Assgn-4.pdf:8080
-// GET http://127.0.0.1/sample.html:8080
-// GET http://127.0.0.1/img.jpg:8080
