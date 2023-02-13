@@ -41,7 +41,7 @@ void get_time(char *time_str, char* expiry_time){
     strftime(time_str, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
     time(&ct2);
     ct2 = ct + 3*24*60*60;
-    tm = gmtime(&ct2);
+    tm = localtime(&ct2);
     strftime(expiry_time, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
 }
 void get_accept_type(char* accept_type, char* path){
@@ -136,6 +136,7 @@ int main(int argc, char* argv[]){
                 char file_path[PACKET_SIZE];
                 sscanf(http_request, "GET %s", file_path);
                 fprintf(log,"%d/%d/%d::%d:%d:%d::%s::%d::%s::%s\n",tm.tm_mday, tm.tm_mon+1, tm.tm_year+1900,tm.tm_hour, tm.tm_min, tm.tm_sec,inet_ntoa(cli_addr.sin_addr),ntohs(cli_addr.sin_port),"GET",file_path);
+                long int file_size = findSize(file_path+1);
                 FILE* fp = fopen(file_path+1, "rb");
                 if(fp == NULL){
                     printf("File not found\n");
@@ -175,10 +176,7 @@ int main(int argc, char* argv[]){
                 sprintf(http_response+strlen(http_response), "Cache-Control: no-store\r\n");
                 sprintf(http_response+strlen(http_response), "Content-language: en-us\r\n");
                 // get file size in bytes
-                fseek(fp, 0, SEEK_END);
-                int file_size = ftell(fp);
-                fseek(fp, 0, SEEK_SET);
-                sprintf(http_response+strlen(http_response), "Content-Length: %d\r\n", file_size);
+                sprintf(http_response+strlen(http_response), "Content-Length: %ld\r\n", file_size);
                 // get accept type
                 char accept_type[100];
                 get_accept_type(accept_type, file_path);

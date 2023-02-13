@@ -20,7 +20,7 @@
 
 #define BUFFER_SIZE 1000000
 #define PACKET_SIZE 1000
-
+char BUFFER[PACKET_SIZE];
 void get_time(char *time_str, char* modified_time_str){
     time_t ct, ct2;
     struct tm* tm;
@@ -29,7 +29,7 @@ void get_time(char *time_str, char* modified_time_str){
     strftime(time_str, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
     time(&ct2);
     ct2 = ct - 2*24*60*60;
-    tm = gmtime(&ct2);
+    tm = localtime(&ct2);
     if(modified_time_str != NULL)
         strftime(modified_time_str, 100, "%a, %d %b %Y %H:%M:%S %Z", tm);
 }
@@ -299,9 +299,17 @@ int main(){
             }
             fclose(fp);
             printf("Request sent\n");
-            char response[PACKET_SIZE];
-            memset(response, 0, PACKET_SIZE);
-            recv(sockfd, response, PACKET_SIZE, 0);
+            char response[BUFFER_SIZE];
+            memset(response, 0, BUFFER_SIZE);
+            memset(BUFFER, 0, PACKET_SIZE);
+            while(recv(sockfd, BUFFER, PACKET_SIZE, 0) > 0){
+                strcat(response, BUFFER);
+                memset(BUFFER, 0, PACKET_SIZE);
+                char* end = strstr(response, "\r\n\r\n");
+                if(end != NULL){
+                    break;
+                }
+            }
             printf("Response:\n%s\n", response);
             char status_code[4];
             sscanf(response, "%*s %s", status_code);
