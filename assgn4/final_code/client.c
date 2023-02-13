@@ -10,7 +10,8 @@
 #include <netdb.h>
 #include <time.h>
 
-#define MAX_BUFFER_SIZE 1024
+#define BUFFER_SIZE 1000000
+#define PACKET_SIZE 1000
 
 void get_time(char *time_str, char* modified_time_str){
     time_t ct, ct2;
@@ -43,6 +44,27 @@ void get_accept_type(char* accept_type, char* path){
         strcpy(accept_type, "text/*");
     }
 }
+long int findSize(char file_name[])
+{
+    // opening the file in read mode
+    FILE* fp = fopen(file_name, "r");
+  
+    // checking if the file exist or not
+    if (fp == NULL) {
+        printf("File Not Found!\n");
+        return -1;
+    }
+  
+    fseek(fp, 0L, SEEK_END);
+  
+    // calculating the size of the file
+    long int res = ftell(fp);
+  
+    // closing the file
+    fclose(fp);
+  
+    return res;
+}
 int main(){
     int sockfd;
     struct sockaddr_in serv_addr;
@@ -53,8 +75,8 @@ int main(){
             exit(1);
         }
         printf("MyOwnBrowser> ");
-        char http_command[MAX_BUFFER_SIZE];
-        fgets(http_command, MAX_BUFFER_SIZE, stdin);
+        char http_command[PACKET_SIZE];
+        fgets(http_command, PACKET_SIZE, stdin);
         http_command[strlen(http_command)-1] = '\0';
         if(strcmp(http_command, "QUIT") == 0){
             printf("Exiting...\n");
@@ -64,7 +86,7 @@ int main(){
         strncpy(request_type, http_command, 3);
         request_type[3] = '\0';
         if(strcmp(request_type, "GET") == 0){
-            char url[MAX_BUFFER_SIZE];
+            char url[PACKET_SIZE];
             sscanf(http_command, "%*s %s", url);
             printf("URL: %s\n", url);
             char protocol[10], host[50], path[100];
@@ -98,7 +120,7 @@ int main(){
                 perror("connect");
                 return 1;
             }
-            char request[MAX_BUFFER_SIZE];
+            char request[PACKET_SIZE];
             sprintf(request, "GET /%s HTTP/1.1\r\n", path);
             sprintf(request + strlen(request), "Host: %s\r\n", host);
             sprintf(request + strlen(request), "Connection: close\r\n");
@@ -109,7 +131,7 @@ int main(){
             get_accept_type(accept_type, path);
             sprintf(request + strlen(request), "Accept: %s\r\n", accept_type);
             sprintf(request + strlen(request), "Accept-Language: en-us\r\n");
-            sprintf(request + strlen(request), "If-Modified-Since: %s\r\n", modified_time_str);
+            // sprintf(request + strlen(request), "If-Modified-Since: %s\r\n", modified_time_str);
             sprintf(request + strlen(request), "\r\n");
             printf("Request:\n%s\n", request);
             
@@ -118,9 +140,10 @@ int main(){
                 exit(1);
             }
             
-            char response[MAX_BUFFER_SIZE];
+            char response[PACKET_SIZE];
             // receive headers first
-            int nbytes = recv(sockfd, response, MAX_BUFFER_SIZE, 0);
+            // int nbytes = recv(sockfd, response, PACKET_SIZE, 0);
+            int nbytes = recv(sockfd, response, PACKET_SIZE-1, 0);
             response[nbytes] = '\0';
             printf("Response:\n%s\n", response);
 
@@ -151,19 +174,32 @@ int main(){
                     printf("File open error\n");
                     exit(1);
                 }
-                char content[MAX_BUFFER_SIZE];
-                memset(content, 0, MAX_BUFFER_SIZE);
-                // int total_bytes = 0;
-                // while(total_bytes < content_length){
-                //     nbytes = recv(sockfd, content, MAX_BUFFER_SIZE, 0);
-                //     total_bytes += nbytes;
-                //     content[nbytes] = '\0';
-                //     fwrite(content, 1, nbytes, fp);
-                // }
-                while((nbytes = recv(sockfd, content, MAX_BUFFER_SIZE, 0)) > 0){
-                    fwrite(content, 1, nbytes, fp);
-                    memset(content, 0, MAX_BUFFER_SIZE);
+                char* body = strstr(response, "\r\n\r\n");
+                if(body==NULL){
+                    printf("Body not found\n");
+                    exit(1);
                 }
+                body += 4;
+                fwrite(body, 1, nbytes - (body - response), fp);
+                char content[PACKET_SIZE];
+                while((nbytes = recv(sockfd, content, PACKET_SIZE-1, 0)) > 0){
+                    content[nbytes] = '\0';
+                    fwrite(content, 1, nbytes, fp);
+                }
+                
+                // char content[PACKET_SIZE];
+                // memset(content, 0, PACKET_SIZE);
+                // // int total_bytes = 0;
+                // // while(total_bytes < content_length){
+                // //     nbytes = recv(sockfd, content, PACKET_SIZE, 0);
+                // //     total_bytes += nbytes;
+                // //     content[nbytes] = '\0';
+                // //     fwrite(content, 1, nbytes, fp);
+                // // }
+                // while((nbytes = recv(sockfd, content, PACKET_SIZE, 0)) > 0){
+                //     fwrite(content, 1, nbytes, fp);
+                //     memset(content, 0, PACKET_SIZE);
+                // }
                 fclose(fp);
                 printf("File received\n");
                 pid_t pid = fork();
@@ -191,7 +227,7 @@ int main(){
             }
         }
         else if(strcmp(request_type, "PUT") == 0){
-            char url[MAX_BUFFER_SIZE], file_name[100];
+            char url[PACKET_SIZE], file_name[100];
             sscanf(http_command, "%*s %s %s", url, file_name);
             printf("URL: %s\n", url);
             printf("File name: %s\n", file_name);
@@ -221,7 +257,7 @@ int main(){
                 perror("connect");
                 return 1;
             }
-            char request[MAX_BUFFER_SIZE];
+            char request[PACKET_SIZE];
             sprintf(request, "PUT /%s/%s HTTP/1.1\r\n", path, file_name);
             sprintf(request + strlen(request), "Host: %s\r\n", host);
             sprintf(request + strlen(request), "Connection: close\r\n");
@@ -229,36 +265,40 @@ int main(){
             get_time(time_str, NULL);
             sprintf(request + strlen(request), "Date: %s\r\n", time_str);
             sprintf(request + strlen(request), "Content-language: en-us\r\n");
+            long int file_size = findSize(file_name);
             FILE* fp = fopen(file_name, "rb");
             if(fp == NULL){
                 printf("File open error\n");
                 exit(1);
             }
-            fseek(fp, 0, SEEK_END);
-            int file_size = ftell(fp);
-            fseek(fp, 0, SEEK_SET);
             sprintf(request + strlen(request), "Content-Length: %d\r\n", file_size);
-
             char content_type[100];
             get_accept_type(content_type, file_name);
             sprintf(request + strlen(request), "Content-Type: %s\r\n", content_type);
             sprintf(request + strlen(request), "\r\n");
             printf("Request:\n%s\n", request);
-            send(sockfd, request, strlen(request), 0);
-
-            char file_content[MAX_BUFFER_SIZE];
-            memset(file_content, 0, MAX_BUFFER_SIZE);
+            int a = send(sockfd, request, strlen(request), 0);
+            printf("request sent;length : %d\n",a);
+            char file_content[PACKET_SIZE];
+            memset(file_content, 0, PACKET_SIZE);
             int iters=0;
-            while(fread(file_content, 1, MAX_BUFFER_SIZE, fp) > 0){
-                printf("Iteration %d\n", ++iters);
-                send(sockfd, file_content, strlen(file_content), 0);
-                memset(file_content, 0, MAX_BUFFER_SIZE);
+            int n;
+            int tot = 0;
+            while((n = fread(file_content, 1, PACKET_SIZE - 1, fp)) > 0){
+                // printf("Iteration %d\n", ++iters);
+                tot += n;
+                printf("Bytes read: %d\n", n);
+                printf("Total bytes read: %d\n", tot);
+                send(sockfd, file_content, n, 0);
+                memset(file_content, 0, PACKET_SIZE);
             }
+             
+            printf("Out of send loop\n");
             fclose(fp);
 
-            char response[MAX_BUFFER_SIZE];
-            memset(response, 0, MAX_BUFFER_SIZE);
-            recv(sockfd, response, MAX_BUFFER_SIZE, 0);
+            char response[PACKET_SIZE];
+            memset(response, 0, PACKET_SIZE);
+            recv(sockfd, response, PACKET_SIZE, 0);
             printf("Response:\n%s\n", response);
 
             char status_code[4];

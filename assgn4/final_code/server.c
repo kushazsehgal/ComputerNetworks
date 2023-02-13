@@ -9,10 +9,35 @@
 #include <errno.h>
 #include <time.h>
 #include <arpa/inet.h>
-
+#include<stdbool.h>
 // PUT http://127.0.0.1/docs:8080 file.txt
-#define MAX_BUFFER_SIZE 1024
+#define BUFFER_SIZE 1000000
+#define PACKET_SIZE 1000
 
+char BUFFER[PACKET_SIZE];
+char TOT_BUFFER[BUFFER_SIZE];
+
+long int findSize(char file_name[])
+{
+    // opening the file in read mode
+    FILE* fp = fopen(file_name, "r");
+  
+    // checking if the file exist or not
+    if (fp == NULL) {
+        printf("File Not Found!\n");
+        return -1;
+    }
+  
+    fseek(fp, 0L, SEEK_END);
+  
+    // calculating the size of the file
+    long int res = ftell(fp);
+  
+    // closing the file
+    fclose(fp);
+  
+    return res;
+}
 void get_time(char *time_str, char* expiry_time){
     time_t ct, ct2;
     struct tm* tm;
@@ -72,36 +97,78 @@ int main(int argc, char* argv[]){
     }
 
     while(1){
+        memset(BUFFER, 0, PACKET_SIZE);
+        memset(TOT_BUFFER, 0, BUFFER_SIZE);
         clifd = accept(sockfd, (struct sockaddr*)&cli_addr, &cli_len);
         if(clifd < 0){
             printf("Accept error\n");
             exit(1);
         }
-        printf("Client connectted from %s:%d with fd %d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), clifd);
+        printf("Client connected from %s:%d with fd %d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), clifd);
         if(fork() == 0){
             close(sockfd);
-            char http_request[MAX_BUFFER_SIZE];
-            int bytes_read = recv(clifd, http_request, MAX_BUFFER_SIZE, 0);
-            if(strlen(http_request) == 0){
-                close(clifd);
-                printf("Empty request\n");
-                exit(1);
+            int bytes_read = 0;
+            int total_bytes_read = 0;
+            bool header_found = false;
+            char* end_of_header;
+            // char hello[BUFFER_SIZE];
+            // memset(hello, 0, BUFFER_SIZE);
+            int j = 0;
+            while((bytes_read = recv(clifd, BUFFER, PACKET_SIZE, 0)) > 0){
+                total_bytes_read += bytes_read;
+                // printf("BUFFER : %s\n", BUFFER);
+                printf("Bytes read : %d\n", bytes_read);
+                printf("Total bytes read : %d\n", total_bytes_read);
+                // strcat(TOT_BUFFER, BUFFER);
+                for(int k=0; k<bytes_read; k++){
+                    TOT_BUFFER[j++] = BUFFER[k];
+                }
+                // strcat(hello,BUFFER);
+                memset(BUFFER, 0, PACKET_SIZE);
+                end_of_header = strstr(TOT_BUFFER, "\r\n\r\n");
+                // char* hello_end = strstr(hello, "\r\n\r\n");
+                // if
+                // end_of_header = strstr(hello, "\r\n\r\n");
+                if(end_of_header != NULL){
+                    end_of_header += 4;
+                    printf("End of header found\n");
+                    // printf("%s\n",  end_of_header);
+                    break;
+                }
+                // if(!header_found){
+                //     char* end_of_header = strstr(TOT_BUFFER, "\r\n\r\n");
+                //     if(end_of_header != NULL){
+                //         printf("End of header found\n");
+                //         end_of_header += 4;
+                //         total_file_bytes_read = strlen(end_of_header);
+                //         header_found = true;
+                //         char* http_request = strtok(TOT_BUFFER, "\r\n\r\n"); 
+
+                //     }   
+                // }
+               
             }
-            // printf("Request:\n");
-            // for(int i=0; i<MAX_BUFFER_SIZE; i++){
-            //     printf("%c", http_request[i]);
-            // }
-            // printf("\n");
-            // get end of header
-            char* end_of_header = strstr(http_request, "\r\n\r\n");
-            end_of_header += 4;
-            // printf("%s\n",  end_of_header+4);
-            // printf("End of header: %s\n", end_of_header);
-            // int read_already = strlen(end_of_header);
-            // printf("Read already: %d\n", read_already);
+            int file_bytes_read = total_bytes_read - (end_of_header - TOT_BUFFER);
+            printf("file bytes read : %d\n", file_bytes_read);
+            printf("Out of Header Recv loop\n");
+            // printf("Total buffer : %s\n", TOT_BUFFER);
+            char http_request[PACKET_SIZE];
+            char *temp = TOT_BUFFER;
+            while(temp != end_of_header){
+                http_request[temp - TOT_BUFFER] = *temp;
+                temp++;
+            }
+            http_request[temp - TOT_BUFFER] = '\0';
+            // printf("file bytes read : %d\n", file_bytes_read);
+            printf("request :\n%s\n", http_request);
+            printf("content :\n%s\n", end_of_header);
+            printf("Reached Here\n");
+            // char* end_of_header = strstr(http_request, "\r\n\r\n");
+            // end_of_header += 4;
+
             if(strncmp(http_request, "GET", 3) == 0){
                 // get file path
-                char file_path[MAX_BUFFER_SIZE];
+                char file_path[PACKET_SIZE];
                 sscanf(http_request, "GET %s", file_path);
                 FILE* fp = fopen(file_path+1, "rb");
                 if(fp == NULL){
@@ -134,7 +201,7 @@ int main(int argc, char* argv[]){
                         exit(1);
                     }
                 }
-                char http_response[MAX_BUFFER_SIZE];
+                char http_response[PACKET_SIZE];
                 sprintf(http_response, "HTTP/1.1 200 OK\r\n");
                 char time_str[100], expiry_time[100];
                 get_time(time_str, expiry_time);
@@ -156,16 +223,15 @@ int main(int argc, char* argv[]){
                 int nbytes = send(clifd, http_response, strlen(http_response), 0);
                 
                 // send file in chunks of 1024 bytes
-                char file_content[MAX_BUFFER_SIZE];
-                memset(file_content, 0, MAX_BUFFER_SIZE);
-                while((nbytes = fread(file_content, 1, MAX_BUFFER_SIZE, fp)) > 0){
-                    send(clifd, file_content, nbytes, 0);
-                    memset(file_content, 0, MAX_BUFFER_SIZE);
+                memset(BUFFER, 0, PACKET_SIZE);
+                while((nbytes = fread(BUFFER, 1, PACKET_SIZE, fp)) > 0){
+                    send(clifd, BUFFER, nbytes, 0);
+                    memset(BUFFER, 0, PACKET_SIZE);
                 }
                 fclose(fp);
             }
             else if(strncmp(http_request, "PUT", 3) == 0){
-                char file_path[MAX_BUFFER_SIZE];
+                char file_path[PACKET_SIZE];
                 sscanf(http_request, "PUT %s", file_path);
                 FILE* fp = fopen(file_path+1, "wb");
                 if(fp == NULL){
@@ -180,45 +246,40 @@ int main(int argc, char* argv[]){
                 int content_length_val;
                 sscanf(content_length, "Content-Length: %d", &content_length_val);
 
-                char http_response[MAX_BUFFER_SIZE];
+                char http_response[PACKET_SIZE];
                 sprintf(http_response, "HTTP/1.1 200 OK\r\n");
                 
                 // // receive file in chunks of 1024 bytes
-                char file_content[MAX_BUFFER_SIZE];
-                memset(file_content, 0, MAX_BUFFER_SIZE);
+                char file_content[PACKET_SIZE];
+                memset(file_content, 0, PACKET_SIZE);
                 int nbytes;
                 int iters = 0;
-
-                fwrite(end_of_header, 1, strlen(end_of_header), fp);
-
-                // while((nbytes = recv(clifd, file_content, MAX_BUFFER_SIZE, 0)) > 0){
-                //     printf("Iteration %d\n", ++iters);
-                //     printf("bytes recvd : %d\n", nbytes);
-                //     fwrite(file_content, 1, nbytes, fp);
-                //     memset(file_content, 0, MAX_BUFFER_SIZE);
-                // }
-                // fwrite(http_request, 1, bytes_read, fp);
-
-                if(content_length_val > strlen(end_of_header)){
-                    // int remaining = content_length_val - strlen(end_of_header);
-                    // while(remaining > 0){
-                    //     nbytes = recv(clifd, file_content, MAX_BUFFER_SIZE, 0);
-                    //     // check for eof
-                    //     if(nbytes == 0){
-                    //         break;
-                    //     }
-                    //     fwrite(file_content, 1, nbytes, fp);
-                    //     memset(file_content, 0, MAX_BUFFER_SIZE);
-                    //     remaining -= nbytes;
-                    // }
-                    while((nbytes = recv(clifd, file_content, MAX_BUFFER_SIZE, 0)) > 0){
-                        fwrite(file_content, 1, nbytes, fp);
-                        memset(file_content, 0, MAX_BUFFER_SIZE);
-                    }
+                int total_file_bytes_read = 0;
+                if(file_bytes_read > 0){
+                    fwrite(end_of_header, 1, file_bytes_read, fp);
+                    total_file_bytes_read += file_bytes_read;
                 }
+                printf("tot content len: %d\n", content_length_val);
+                while(total_file_bytes_read < content_length_val){
+                    nbytes = recv(clifd, file_content, PACKET_SIZE - 1, 0);
+                    total_file_bytes_read += nbytes;
+                    printf("nbytes: %d\n", nbytes);
+                    printf("total_file_bytes_read: %d\n", total_file_bytes_read);
+                    fwrite(file_content, 1, nbytes, fp);
+                    memset(file_content, 0, PACKET_SIZE);
+                }
+                printf("Out of file recv loop\n");
+                // fwrite(end_of_header, 1, strlen(end_of_header), fp);
+                // if(content_length_val > strlen(end_of_header)){
+                //     while((nbytes = recv(clifd, file_content, PACKET_SIZE, 0)) > 0){
+                //         fwrite(file_content, 1, nbytes, fp);
+                //         memset(file_content, 0, PACKET_SIZE);
+                //     }
+                // } 
                 
                 fclose(fp);
                 send(clifd, http_response, strlen(http_response), 0);
+                // close(clifd);
             }
             close(clifd);
             exit(0);
