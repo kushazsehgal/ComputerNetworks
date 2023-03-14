@@ -55,9 +55,10 @@ MySocket* my_socket(int domain,int type,int protocol){
 }
 
 int myclose(MySocket* mysock){
-    while(mysock->send_seq != 0 && mysock->recv_seq != 0){
+    while(mysock->send_seq != 0 || mysock->recv_seq != 0){
         sleep(0.01);
     }
+    printf("Closing socket\n");
     pthread_cancel(mysock->send_thread);
     pthread_cancel(mysock->recv_thread);
     pthread_mutex_destroy(&mysock->send_mutex);
@@ -142,6 +143,7 @@ int my_send(MySocket* mysock, char* buffer, int size){
     for(int i = HEADER_SIZE;i < HEADER_SIZE + size;i++)
         mysock->send_buffer[mysock->send_seq][i] = buffer[i - HEADER_SIZE];
     mysock->send_seq++;
+    printf("Send Seq is non zero : %d\n",mysock->send_seq);
     pthread_mutex_unlock(&mysock->send_mutex);
     pthread_cond_signal(&mysock->send_cond_added);
     return size;
@@ -154,7 +156,7 @@ int my_recv(MySocket* mysock, char* buffer, int size){
     printf("Mutex is Locked\n");
     pthread_mutex_lock(&mysock->recv_mutex);
     printf("Mutex Unlocked\n");
-    printf("Before Recv Seq is zero : %d\n",mysock->recv_seq);
+    // printf("Before Recv Seq is zero : %d\n",mysock->recv_seq);
     while(mysock->recv_seq == 0){
         pthread_cond_wait(&mysock->recv_cond_added,&mysock->recv_mutex);
     }
@@ -179,6 +181,7 @@ void* send_runner(void *arg){
     while(mysock->cli_sockfd == 0);
     while(1){
         pthread_mutex_lock(&mysock->send_mutex);
+        printf("Send Seq Before : %d\n",mysock->send_seq);
         while(mysock->send_seq == 0){
             pthread_cond_wait(&mysock->send_cond_added,&mysock->send_mutex);
         }
@@ -195,8 +198,10 @@ void* send_runner(void *arg){
             left -= ret;
             sent += ret;
         }
-        printf("Send Completed!\n");
+        printf("Send Completed --> bytes : %s, content : %s\n", mysock->send_buffer[idx], mysock->send_buffer[idx] + HEADER_SIZE);
+        // printf("Send Completed!\n");
         mysock->send_seq--;
+        printf("Send Seq After : %d\n",mysock->send_seq);
         memset(mysock->send_buffer[idx],0,MAX_MESSAGE_SIZE + HEADER_SIZE);
         pthread_mutex_unlock(&mysock->send_mutex);
         pthread_cond_signal(&mysock->send_cond_removed);
