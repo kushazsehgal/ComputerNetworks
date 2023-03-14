@@ -116,18 +116,42 @@ int main(int argc, char* argv[]){
             int j = 0;
             while((bytes_read = recv(clifd, BUFFER, PACKET_SIZE, 0)) > 0){
                 total_bytes_read += bytes_read;
+                // printf("BUFFER : %s\n", BUFFER);
+                printf("Bytes read : %d\n", bytes_read);
+                printf("Total bytes read : %d\n", total_bytes_read);
+                // strcat(TOT_BUFFER, BUFFER);
                 for(int k=0; k<bytes_read; k++){
                     TOT_BUFFER[j++] = BUFFER[k];
                 }
+                // strcat(hello,BUFFER);
                 memset(BUFFER, 0, PACKET_SIZE);
                 end_of_header = strstr(TOT_BUFFER, "\r\n\r\n");
+                // char* hello_end = strstr(hello, "\r\n\r\n");
+                // if
+                // end_of_header = strstr(hello, "\r\n\r\n");
                 if(end_of_header != NULL){
                     end_of_header += 4;
+                    printf("End of header found\n");
+                    // printf("%s\n",  end_of_header);
                     break;
                 }
+                // if(!header_found){
+                //     char* end_of_header = strstr(TOT_BUFFER, "\r\n\r\n");
+                //     if(end_of_header != NULL){
+                //         printf("End of header found\n");
+                //         end_of_header += 4;
+                //         total_file_bytes_read = strlen(end_of_header);
+                //         header_found = true;
+                //         char* http_request = strtok(TOT_BUFFER, "\r\n\r\n"); 
+
+                //     }   
+                // }
                
             }
             int file_bytes_read = total_bytes_read - (end_of_header - TOT_BUFFER);
+            printf("file bytes read : %d\n", file_bytes_read);
+            printf("Out of Header Recv loop\n");
+            // printf("Total buffer : %s\n", TOT_BUFFER);
             char http_request[PACKET_SIZE];
             char *temp = TOT_BUFFER;
             while(temp != end_of_header){
@@ -135,6 +159,12 @@ int main(int argc, char* argv[]){
                 temp++;
             }
             http_request[temp - TOT_BUFFER] = '\0';
+            // printf("file bytes read : %d\n", file_bytes_read);
+            printf("request :\n%s\n", http_request);
+            printf("content :\n%s\n", end_of_header);
+            printf("Reached Here\n");
+            // char* end_of_header = strstr(http_request, "\r\n\r\n");
+            // end_of_header += 4;
 
             if(strncmp(http_request, "GET", 3) == 0){
                 // get file path
@@ -179,10 +209,9 @@ int main(int argc, char* argv[]){
                 sprintf(http_response+strlen(http_response), "Cache-Control: no-store\r\n");
                 sprintf(http_response+strlen(http_response), "Content-language: en-us\r\n");
                 // get file size in bytes
-                // fseek(fp, 0, SEEK_END);
-                // int file_size = ftell(fp);
-                // fseek(fp, 0, SEEK_SET);
-                long file_size = findSize(file_path+1);
+                fseek(fp, 0, SEEK_END);
+                int file_size = ftell(fp);
+                fseek(fp, 0, SEEK_SET);
                 sprintf(http_response+strlen(http_response), "Content-Length: %d\r\n", file_size);
                 // get accept type
                 char accept_type[100];
@@ -230,14 +259,27 @@ int main(int argc, char* argv[]){
                     fwrite(end_of_header, 1, file_bytes_read, fp);
                     total_file_bytes_read += file_bytes_read;
                 }
+                printf("tot content len: %d\n", content_length_val);
                 while(total_file_bytes_read < content_length_val){
                     nbytes = recv(clifd, file_content, PACKET_SIZE - 1, 0);
                     total_file_bytes_read += nbytes;
+                    printf("nbytes: %d\n", nbytes);
+                    printf("total_file_bytes_read: %d\n", total_file_bytes_read);
                     fwrite(file_content, 1, nbytes, fp);
                     memset(file_content, 0, PACKET_SIZE);
                 }
+                printf("Out of file recv loop\n");
+                // fwrite(end_of_header, 1, strlen(end_of_header), fp);
+                // if(content_length_val > strlen(end_of_header)){
+                //     while((nbytes = recv(clifd, file_content, PACKET_SIZE, 0)) > 0){
+                //         fwrite(file_content, 1, nbytes, fp);
+                //         memset(file_content, 0, PACKET_SIZE);
+                //     }
+                // } 
+                
                 fclose(fp);
                 send(clifd, http_response, strlen(http_response), 0);
+                // close(clifd);
             }
             close(clifd);
             exit(0);

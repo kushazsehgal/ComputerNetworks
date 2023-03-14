@@ -88,7 +88,6 @@ int main(){
         if(strcmp(request_type, "GET") == 0){
             char url[PACKET_SIZE];
             sscanf(http_command, "%*s %s", url);
-            printf("URL: %s\n", url);
             char protocol[10], host[50], path[100];
             int port = 80; // default port
             if (sscanf(url, "%[^:]://%[^/]/%[^:]:%d", protocol, host, path, &port) != 4) {
@@ -104,8 +103,6 @@ int main(){
             else{
                 file_name = path;
             }
-            printf("File name: %s\n", file_name);
-            printf("Protocol: %s\nHost: %s\nPort: %d\nPath: %s\n", protocol, host, port, path);
             struct hostent *server = gethostbyname(host);
             if (server == NULL) {
                 fprintf(stderr, "Unable to resolve host %s\n", host);
@@ -145,28 +142,23 @@ int main(){
             // int nbytes = recv(sockfd, response, PACKET_SIZE, 0);
             int nbytes = recv(sockfd, response, PACKET_SIZE-1, 0);
             response[nbytes] = '\0';
-            printf("Response:\n%s\n", response);
 
             // get version, status code and status message
             char version[10], status_code[10], status_message[100];
             sscanf(response, "%s %s %s", version, status_code, status_message);
-            printf("Version: %s\nStatus Code: %s\nStatus Message: %s\n", version, status_code, status_message);
 
             if(strcmp(status_code, "200") == 0){
                 // get content length
                 char* content_length_str = strstr(response, "Content-Length: ");
                 int content_length;
                 sscanf(content_length_str, "Content-Length: %d", &content_length);
-                printf("Content Length: %d\n", content_length);
 
                 // get content type
                 char* content_type_str = strstr(response, "Content-Type: ");
                 char content_type[100];
                 sscanf(content_type_str, "Content-Type: %s", content_type);
-                printf("Content Type: %s\n", content_type);
 
                 // receive content
-                
                 char recv_file_name[100];
                 sprintf(recv_file_name, "recv_%s", file_name);
                 FILE* fp = fopen(recv_file_name, "wb");
@@ -186,22 +178,7 @@ int main(){
                     content[nbytes] = '\0';
                     fwrite(content, 1, nbytes, fp);
                 }
-                
-                // char content[PACKET_SIZE];
-                // memset(content, 0, PACKET_SIZE);
-                // // int total_bytes = 0;
-                // // while(total_bytes < content_length){
-                // //     nbytes = recv(sockfd, content, PACKET_SIZE, 0);
-                // //     total_bytes += nbytes;
-                // //     content[nbytes] = '\0';
-                // //     fwrite(content, 1, nbytes, fp);
-                // // }
-                // while((nbytes = recv(sockfd, content, PACKET_SIZE, 0)) > 0){
-                //     fwrite(content, 1, nbytes, fp);
-                //     memset(content, 0, PACKET_SIZE);
-                // }
                 fclose(fp);
-                printf("File received\n");
                 pid_t pid = fork();
                 if(pid == 0){
                     if(strcmp(content_type, "text/html") == 0){
@@ -229,8 +206,6 @@ int main(){
         else if(strcmp(request_type, "PUT") == 0){
             char url[PACKET_SIZE], file_name[100];
             sscanf(http_command, "%*s %s %s", url, file_name);
-            printf("URL: %s\n", url);
-            printf("File name: %s\n", file_name);
             char protocol[10], host[50], path[100];
             int port = 80; // default port
             if (sscanf(url, "%[^:]://%[^/]/%[^:]:%d", protocol, host, path, &port) != 4) {
@@ -239,10 +214,6 @@ int main(){
                     return 1;
                 }
             }
-            printf("Protocol: %s\n", protocol);
-            printf("Host: %s\n", host);
-            printf("Path: %s\n", path);
-            printf("Port: %d\n", port);
             struct hostent *server = gethostbyname(host);
             if (server == NULL) {
                 fprintf(stderr, "Unable to resolve host %s\n", host);
@@ -276,30 +247,23 @@ int main(){
             get_accept_type(content_type, file_name);
             sprintf(request + strlen(request), "Content-Type: %s\r\n", content_type);
             sprintf(request + strlen(request), "\r\n");
-            printf("Request:\n%s\n", request);
             int a = send(sockfd, request, strlen(request), 0);
-            printf("request sent;length : %d\n",a);
             char file_content[PACKET_SIZE];
             memset(file_content, 0, PACKET_SIZE);
             int iters=0;
             int n;
             int tot = 0;
             while((n = fread(file_content, 1, PACKET_SIZE - 1, fp)) > 0){
-                // printf("Iteration %d\n", ++iters);
                 tot += n;
-                printf("Bytes read: %d\n", n);
-                printf("Total bytes read: %d\n", tot);
                 send(sockfd, file_content, n, 0);
                 memset(file_content, 0, PACKET_SIZE);
             }
              
-            printf("Out of send loop\n");
             fclose(fp);
 
             char response[PACKET_SIZE];
             memset(response, 0, PACKET_SIZE);
             recv(sockfd, response, PACKET_SIZE, 0);
-            printf("Response:\n%s\n", response);
 
             char status_code[4];
             sscanf(response, "%*s %s", status_code);
