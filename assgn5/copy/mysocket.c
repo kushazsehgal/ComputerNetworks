@@ -2,56 +2,62 @@
 
 
 MySocket* my_socket(int domain,int type,int protocol){
-        if(type != SOCK_MyTCP){
-            perror("Invalid Socket type : allowed types are : MyTCP\n");
-        }
-        MySocket *mysock = (MySocket*)malloc(sizeof(MySocket));
-        mysock->sockfd = socket(domain,SOCK_STREAM,protocol);
-        if(mysock->sockfd < 0){
-                perror("Socket creation failed");
-                exit(1);
-        }
-        
-        mysock->send_buffer = (char**)malloc(sizeof(char*)*MAX_SEND_NUM);
-        mysock->recv_buffer = (char**)malloc(sizeof(char*)*MAX_RECV_NUM);
+    if(type != SOCK_MyTCP){
+        perror("Invalid Socket type : allowed types are : MyTCP\n");
+    }
+    MySocket *mysock = (MySocket*)malloc(sizeof(MySocket));
+    mysock->sockfd = socket(domain,SOCK_STREAM,protocol);
+    if(mysock->sockfd < 0){
+            perror("Socket creation failed");
+            exit(1);
+    }
+    
+    mysock->send_buffer = (char**)malloc(sizeof(char*)*MAX_SEND_NUM);
+    mysock->recv_buffer = (char**)malloc(sizeof(char*)*MAX_RECV_NUM);
 
-        for(int i = 0;i < MAX_SEND_NUM;i++){
-            *(mysock->send_buffer + i) = (char*)malloc(sizeof(char)*(MAX_MESSAGE_SIZE + HEADER_SIZE));
-        }
-        for(int i = 0;i < MAX_RECV_NUM;i++){
-            *(mysock->recv_buffer + i) = (char*)malloc(sizeof(char)*(MAX_MESSAGE_SIZE + HEADER_SIZE));
-        }
+    for(int i = 0;i < MAX_SEND_NUM;i++){
+        *(mysock->send_buffer + i) = (char*)malloc(sizeof(char)*(MAX_MESSAGE_SIZE + HEADER_SIZE));
+    }
+    for(int i = 0;i < MAX_RECV_NUM;i++){
+        *(mysock->recv_buffer + i) = (char*)malloc(sizeof(char)*(MAX_MESSAGE_SIZE + HEADER_SIZE));
+    }
 
-        if (pthread_mutex_init(&mysock->send_mutex, NULL) != 0) {
-            perror("pthread_mutex_init() error");
-            exit(3);
-        }
-        if (pthread_mutex_init(&mysock->recv_mutex, NULL) != 0) {
-            perror("pthread_mutex_init() error");
-            exit(3);
-        }
-        if (pthread_cond_init(&mysock->send_cond_added, NULL) != 0) {                                    
-            perror("pthread_cond_init() error");                                        
-            exit(1);                                                                    
-        }
-        if (pthread_cond_init(&mysock->send_cond_removed, NULL) != 0) {                                    
-            perror("pthread_cond_init() error");                                        
-            exit(1);                                                                    
-        }
-        if (pthread_cond_init(&mysock->recv_cond_added, NULL) != 0) {                                    
-            perror("pthread_cond_init() error");                                        
-            exit(1);                                                                    
-        }
-        if (pthread_cond_init(&mysock->recv_cond_removed, NULL) != 0) {                                    
-            perror("pthread_cond_init() error");                                        
-            exit(1);                                                                    
-        }
-        mysock->send_seq = 0;
-        mysock->recv_seq = 0;
-        pthread_create(&mysock->send_thread,NULL,send_runner,(void*)(mysock));
-        pthread_create(&mysock->recv_thread,NULL,recv_runner,(void*)(mysock));
-        
-        return mysock;
+    if (pthread_mutex_init(&mysock->send_mutex, NULL) != 0) {
+        perror("pthread_mutex_init() error");
+        exit(3);
+    }
+    if (pthread_mutex_init(&mysock->recv_mutex, NULL) != 0) {
+        perror("pthread_mutex_init() error");
+        exit(3);
+    }
+    if (pthread_cond_init(&mysock->send_cond_added, NULL) != 0) {                                    
+        perror("pthread_cond_init() error");                                        
+        exit(1);                                                                    
+    }
+    if (pthread_cond_init(&mysock->send_cond_removed, NULL) != 0) {                                    
+        perror("pthread_cond_init() error");                                        
+        exit(1);                                                                    
+    }
+    if (pthread_cond_init(&mysock->recv_cond_added, NULL) != 0) {                                    
+        perror("pthread_cond_init() error");                                        
+        exit(1);                                                                    
+    }
+    if (pthread_cond_init(&mysock->recv_cond_removed, NULL) != 0) {                                    
+        perror("pthread_cond_init() error");                                        
+        exit(1);                                                                    
+    }
+    mysock->send_seq = 0;
+    mysock->recv_seq = 0;
+
+    mysock->send_head = 0;
+    mysock->send_tail = 0;
+    mysock->recv_head = 0;
+    mysock->recv_tail = 0;
+
+    pthread_create(&mysock->send_thread,NULL,send_runner,(void*)(mysock));
+    pthread_create(&mysock->recv_thread,NULL,recv_runner,(void*)(mysock));
+    
+    return mysock;
 }
 
 int myclose(MySocket* mysock){
@@ -135,15 +141,25 @@ int my_send(MySocket* mysock, char* buffer, int size){
         pthread_cond_wait(&mysock->send_cond_removed,&mysock->send_mutex);
     }
     int size_copy = size;
-    mysock->send_buffer[mysock->send_seq][HEADER_SIZE - 1] = '\0';
+    // mysock->send_buffer[mysock->send_seq][HEADER_SIZE - 1] = '\0';
+    // for(int i = HEADER_SIZE - 2;i >= 0;i--){
+    //     mysock->send_buffer[mysock->send_seq][i] = '0' + (size_copy%10);
+    //     size_copy /= 10;
+    // }
+    // for(int i = HEADER_SIZE;i < HEADER_SIZE + size;i++)
+    //     mysock->send_buffer[mysock->send_seq][i] = buffer[i - HEADER_SIZE];
+    // mysock->send_seq++;
+    // printf("Send Seq is non zero : %d\n",mysock->send_seq);
+    mysock->send_buffer[mysock->send_head][HEADER_SIZE - 1] = '\0';
     for(int i = HEADER_SIZE - 2;i >= 0;i--){
-        mysock->send_buffer[mysock->send_seq][i] = '0' + (size_copy%10);
+        mysock->send_buffer[mysock->send_head][i] = '0' + (size_copy%10);
         size_copy /= 10;
     }
     for(int i = HEADER_SIZE;i < HEADER_SIZE + size;i++)
-        mysock->send_buffer[mysock->send_seq][i] = buffer[i - HEADER_SIZE];
+        mysock->send_buffer[mysock->send_head][i] = buffer[i - HEADER_SIZE];
+    mysock->send_head = (mysock->send_head + 1) % MAX_SEND_NUM;
     mysock->send_seq++;
-    printf("Send Seq is non zero : %d\n",mysock->send_seq);
+
     pthread_mutex_unlock(&mysock->send_mutex);
     pthread_cond_signal(&mysock->send_cond_added);
     return size;
@@ -160,17 +176,28 @@ int my_recv(MySocket* mysock, char* buffer, int size){
     while(mysock->recv_seq == 0){
         pthread_cond_wait(&mysock->recv_cond_added,&mysock->recv_mutex);
     }
-    printf("After Recv Seq is zero : %d\n",mysock->recv_seq);
-    printf("Recv Seq is non zero : %d\n",mysock->recv_seq);
-    int idx = mysock->recv_seq - 1;
+    // printf("After Recv Seq is zero : %d\n",mysock->recv_seq);
+    // printf("Recv Seq is non zero : %d\n",mysock->recv_seq);
+    // int idx = mysock->recv_seq - 1;
+    // int i = 0;
+    // int buffer_size = atoi(mysock->recv_buffer[idx]);
+    // printf("Buffer Size : %d\n",buffer_size);
+    // for(int j = HEADER_SIZE;j < HEADER_SIZE + min(buffer_size,size);j++)
+    //     buffer[i++] = mysock->recv_buffer[idx][j];
+    // printf("Copied into buffer : %d\n",i);
+    // mysock->recv_seq--;
+    // memset(mysock->recv_buffer[idx],0,MAX_MESSAGE_SIZE + HEADER_SIZE);
+    int idx = mysock->recv_tail;
     int i = 0;
     int buffer_size = atoi(mysock->recv_buffer[idx]);
     printf("Buffer Size : %d\n",buffer_size);
     for(int j = HEADER_SIZE;j < HEADER_SIZE + min(buffer_size,size);j++)
         buffer[i++] = mysock->recv_buffer[idx][j];
     printf("Copied into buffer : %d\n",i);
+    mysock->recv_tail = (mysock->recv_tail + 1) % MAX_RECV_NUM; 
     mysock->recv_seq--;
     memset(mysock->recv_buffer[idx],0,MAX_MESSAGE_SIZE + HEADER_SIZE);
+
     pthread_mutex_unlock(&mysock->recv_mutex);
     pthread_cond_signal(&mysock->recv_cond_removed);
     return min(buffer_size,size);
@@ -185,7 +212,25 @@ void* send_runner(void *arg){
         while(mysock->send_seq == 0){
             pthread_cond_wait(&mysock->send_cond_added,&mysock->send_mutex);
         }
-        int idx = mysock->send_seq - 1;
+        // int idx = mysock->send_seq - 1;
+        // int left = atoi(mysock->send_buffer[idx]) + HEADER_SIZE;
+        // int sent = 0;
+        // while(left > 0){
+        //     int ret = send(mysock->cli_sockfd,mysock->send_buffer[idx] + sent,min((int)MAX_SEND_SIZE,left),0);
+        //     if(ret < 0){
+        //         perror("Send failed");
+        //         exit(1);
+        //     }
+        //     printf("sent [thread]: %d\n", ret);
+        //     left -= ret;
+        //     sent += ret;
+        // }
+        // printf("Send Completed --> bytes : %s, content : %s\n", mysock->send_buffer[idx], mysock->send_buffer[idx] + HEADER_SIZE);
+        // // printf("Send Completed!\n");
+        // mysock->send_seq--;
+        // printf("Send Seq After : %d\n",mysock->send_seq);
+        // memset(mysock->send_buffer[idx],0,MAX_MESSAGE_SIZE + HEADER_SIZE);
+        int idx = mysock->send_tail;
         int left = atoi(mysock->send_buffer[idx]) + HEADER_SIZE;
         int sent = 0;
         while(left > 0){
@@ -199,7 +244,7 @@ void* send_runner(void *arg){
             sent += ret;
         }
         printf("Send Completed --> bytes : %s, content : %s\n", mysock->send_buffer[idx], mysock->send_buffer[idx] + HEADER_SIZE);
-        // printf("Send Completed!\n");
+        mysock->send_tail = (mysock->send_tail + 1) % MAX_SEND_NUM;
         mysock->send_seq--;
         printf("Send Seq After : %d\n",mysock->send_seq);
         memset(mysock->send_buffer[idx],0,MAX_MESSAGE_SIZE + HEADER_SIZE);
@@ -253,9 +298,14 @@ void* recv_runner(void* arg){
         while(mysock->recv_seq == MAX_RECV_NUM){
             pthread_cond_wait(&mysock->recv_cond_removed,&mysock->recv_mutex);
         }
-        for(int i = 0;i < idx;i++)
-            mysock->recv_buffer[mysock->recv_seq][i] = BUFFER[i];
+        // for(int i = 0;i < idx;i++)
+        //     mysock->recv_buffer[mysock->recv_seq][i] = BUFFER[i];
+        // mysock->recv_seq++;
+        for(int i=0;i<idx;i++)
+            mysock->recv_buffer[mysock->recv_head][i] = BUFFER[i];
+        mysock->recv_head = (mysock->recv_head + 1) % MAX_RECV_NUM;
         mysock->recv_seq++;
+
         pthread_mutex_unlock(&mysock->recv_mutex);
         pthread_cond_signal(&mysock->recv_cond_added);
         // sleep(1);
