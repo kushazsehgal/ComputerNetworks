@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+
  #define min(a,b) \
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
@@ -37,7 +38,10 @@ typedef struct
     char** recv_buffer;
     int send_seq;
     int recv_seq;
-
+    int send_head;
+    int send_tail;
+    int recv_head;
+    int recv_tail;
 }MySocket;
 
 
