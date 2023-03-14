@@ -11,7 +11,7 @@ void* send_runner(void* arg)
             continue;
         }
         // printf("Sending %d messages\n", mysock->send_seq);
-        while(mysock->send_seq == 0);
+        while(mysock->connected == 0);
         printf("thread mysock->connected: %d\n", mysock->connected);
         for(int i=0; i<mysock->send_seq; i++){
             int ret = send(mysock->connected, mysock->send_buffer[i], strlen(mysock->send_buffer[i])+1, 0);
@@ -27,8 +27,9 @@ void* send_runner(void* arg)
         for(int i=0; i<MAX_SEND_NUM; i++){
             memset(mysock->send_buffer[i], 0, MAX_SEND_SIZE);
         }
-        pthread_cond_signal(&mysock->send_cond);
+        
         pthread_mutex_unlock(&mysock->send_mutex);
+        pthread_cond_signal(&mysock->send_cond);
     }
 }
 
@@ -47,7 +48,7 @@ void* recv_runner(void* arg)
             perror("Recv failed");
             exit(1);
         }
-        // printf("Received [thread]: %s\n", buffer);
+        printf("Received [thread]: %s\n", buffer);
         int i = 0;
         while(i < strlen(buffer)){
             int j = 0;
@@ -58,8 +59,9 @@ void* recv_runner(void* arg)
             }
             mysock->recv_seq = (mysock->recv_seq + 1);
         }
-        pthread_cond_signal(&mysock->recv_cond);
+        
         pthread_mutex_unlock(&mysock->recv_mutex);
+        pthread_cond_signal(&mysock->recv_cond);
     }
 }
 
@@ -190,8 +192,8 @@ int my_send(MySocket* mysock, char* buffer, int size)
         }
         mysock->send_seq = (mysock->send_seq + 1);
     }
-    pthread_cond_signal(&mysock->send_cond);
     pthread_mutex_unlock(&mysock->send_mutex);
+    // pthread_cond_signal(&mysock->send_cond);
     return size;
 }
 

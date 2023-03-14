@@ -1,0 +1,17 @@
+thread mysock->cli_sockfd: 4
+Connected to server: 127.0.0.1 8000
+Mutex is Locked
+Recv Seq : 0
+Received [thread] Header : 5
+Header Received idx : 5!
+Left : 10
+Received [thread]: 10
+Recv Completed!
+size : 0010, content : Send Load
+Mutex Unlocked
+Before Recv Seq is zero : 1
+After Recv Seq is zero : 1
+Recv Seq is non zero : 1
+Buffer Size : 10
+Copied into buffer : 10
+received: Send Load
