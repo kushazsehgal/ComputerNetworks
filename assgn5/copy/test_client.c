@@ -10,6 +10,17 @@ int main(int agrc, char* argv[]){
     printf("Connected to server: %s %d\n", inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
     char buff[100];
     my_recv(mysock, buff, 100);
-    printf("received: %s", buff);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    // memset(buff, 0, 100);
+    // printf("Enter message to send: ");
+    // fgets(buff, 100, stdin);
+    // my_send(mysock, buff, strlen(buff)+1);
+
     myclose(mysock);
 }

@@ -13,16 +13,28 @@ int main(int agrc, char* argv[]){
     // while(1){
         // int client_len = sizeof(client_addr);
         socklen_t client_len = sizeof(client_addr);
-        int newsockfd = my_accept(mysock, (struct sockaddr *) &client_addr, &client_len);
+        my_accept(mysock, (struct sockaddr *) &client_addr, &client_len);
         printf("mysock->connected: %d\n", mysock->cli_sockfd);
         printf("Client connected: %s %d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
         char buff[100];
         memset(buff, 0, 100);
-        strcpy(buff, "Send Load");
+        // strcpy(buff, "Send Load");
+        // printf("Enter message to send: ");
+        // fgets(buff, 100, stdin);
+        // my_send(mysock, buff, strlen(buff)+1);
+        // printf("Bhai yeh kya hai\n");
+        // memset(buff, 0, 100);
+        // my_recv(mysock, buff, 100);
+        // printf("received: %s\n", buff);
+        strcpy(buff, "Send Load1");
         my_send(mysock, buff, strlen(buff)+1);
-        printf("Bhai yeh kya hai");
-        sleep(3);
-        close(newsockfd);
+        strcpy(buff, "Send Load2");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load3");
+        my_send(mysock, buff, strlen(buff)+1);
+        
+        // sleep(3);
+        // close(newsockfd);
     // }
     myclose(mysock);
     return 0;

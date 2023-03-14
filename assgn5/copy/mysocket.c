@@ -55,7 +55,9 @@ MySocket* my_socket(int domain,int type,int protocol){
 }
 
 int myclose(MySocket* mysock){
-    
+    while(mysock->send_seq != 0 && mysock->recv_seq != 0){
+        sleep(0.01);
+    }
     pthread_cancel(mysock->send_thread);
     pthread_cancel(mysock->recv_thread);
     pthread_mutex_destroy(&mysock->send_mutex);
@@ -76,6 +78,7 @@ int myclose(MySocket* mysock){
     free(mysock->send_buffer);
     free(mysock->recv_buffer);
     close(mysock->sockfd);
+    close(mysock->cli_sockfd);
     free(mysock);
     return 0;
 }
@@ -174,8 +177,6 @@ int my_recv(MySocket* mysock, char* buffer, int size){
 void* send_runner(void *arg){
     MySocket* mysock = (MySocket*) arg;
     while(mysock->cli_sockfd == 0);
-    // if(mysock->cli_sockfd == 0)
-    //     perror("Client Not Connected");
     while(1){
         pthread_mutex_lock(&mysock->send_mutex);
         while(mysock->send_seq == 0){
@@ -199,42 +200,42 @@ void* send_runner(void *arg){
         memset(mysock->send_buffer[idx],0,MAX_MESSAGE_SIZE + HEADER_SIZE);
         pthread_mutex_unlock(&mysock->send_mutex);
         pthread_cond_signal(&mysock->send_cond_removed);
+        sleep(SEND_THREAD_SLEEP_TIME);
     }
 }
 void* recv_runner(void* arg){
     MySocket* mysock = (MySocket*)arg;
-    // if(mysock->cli_sockfd == 0);
-    //     perror("Client Not Connected");
+    char BUFFER[MAX_MESSAGE_SIZE + HEADER_SIZE];
     while(mysock->cli_sockfd == 0);
     while(1){
-        pthread_mutex_lock(&mysock->recv_mutex);
-        while(mysock->recv_seq == MAX_RECV_NUM){
-            pthread_cond_wait(&mysock->send_cond_removed,&mysock->send_mutex);
-        }
-        printf("Recv Seq : %d\n",mysock->recv_seq);
+        memset(BUFFER,0,MAX_MESSAGE_SIZE + HEADER_SIZE);
+        // printf("Recv Seq : %d\n",mysock->recv_seq);
         int header_left = HEADER_SIZE;
         int idx = 0;
         while(header_left > 0){
-            int ret = recv(mysock->cli_sockfd,mysock->recv_buffer[mysock->recv_seq]+idx,header_left,0);
+            int ret = recv(mysock->cli_sockfd,BUFFER+idx,header_left,0);
             if(ret < 0){
                 perror("Recv Failed");
                 exit(1);
             }   
-            // if(ret == 0){
-            //     printf("Disconnected\n");
-            //     pthread_exit(NULL);
-            // }
+            if(ret == 0){
+                printf("Disconnected\n");
+                pthread_mutex_unlock(&mysock->recv_mutex);
+                pthread_cond_signal(&mysock->recv_cond_added);
+                // myclose(mysock);
+                pthread_exit(NULL);
+            }
             header_left -= ret;
             idx += ret;
             printf("Received [thread] Header : %d\n", ret);
         }
         printf("Header Received idx : %d!\n",idx);
-        int left = atoi(mysock->recv_buffer[mysock->recv_seq]);
+        int left = atoi(BUFFER);
         printf("Left : %d\n",left);
         while(left > 0){
-            int ret = recv(mysock->cli_sockfd,mysock->recv_buffer[mysock->recv_seq] + idx,min((int)MAX_RECV_SIZE,left),0);
+            int ret = recv(mysock->cli_sockfd,BUFFER + idx,min((int)MAX_RECV_SIZE,left),0);
             if(ret < 0){
-                perror("Send failed");
+                perror("Recv failed");
                 exit(1);
             }
             left -= ret;
@@ -242,12 +243,17 @@ void* recv_runner(void* arg){
             printf("Received [thread]: %d\n", ret);
         }
         printf("Recv Completed!\n");
-        printf("size : %s, content : %s\n",mysock->recv_buffer[mysock->recv_seq],mysock->recv_buffer[mysock->recv_seq] + HEADER_SIZE);
-
+        printf("size : %s, content : %s\n",BUFFER,BUFFER + HEADER_SIZE);
+        pthread_mutex_lock(&mysock->recv_mutex);
+        while(mysock->recv_seq == MAX_RECV_NUM){
+            pthread_cond_wait(&mysock->recv_cond_removed,&mysock->recv_mutex);
+        }
+        for(int i = 0;i < idx;i++)
+            mysock->recv_buffer[mysock->recv_seq][i] = BUFFER[i];
         mysock->recv_seq++;
         pthread_mutex_unlock(&mysock->recv_mutex);
         pthread_cond_signal(&mysock->recv_cond_added);
-        sleep(1);
+        // sleep(1);
     }
 
 }

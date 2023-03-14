@@ -11,13 +11,14 @@
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a < _b ? _a : _b; })
+    
 #define SOCK_MyTCP -1
-#define MAX_MESSAGE_SIZE 5000
-#define MAX_SEND_SIZE 1000
-#define MAX_RECV_SIZE 1000
+#define MAX_MESSAGE_SIZE 100
+#define MAX_SEND_SIZE 4
+#define MAX_RECV_SIZE 4
 #define HEADER_SIZE 5
-#define MAX_SEND_NUM 5
-#define MAX_RECV_NUM 5
+#define MAX_SEND_NUM 10  
+#define MAX_RECV_NUM 10
 #define SEND_THREAD_SLEEP_TIME 1
 
 typedef struct 
@@ -36,7 +37,9 @@ typedef struct
     char** recv_buffer;
     int send_seq;
     int recv_seq;
+
 }MySocket;
+
 
 MySocket* my_socket(int domain, int type, int protocol);
 int my_bind(MySocket* mysock , const struct sockaddr *addr, socklen_t addrlen);
