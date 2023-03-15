@@ -17,10 +17,34 @@ int main(int agrc, char* argv[]){
     memset(buff, 0, 100);
     my_recv(mysock, buff, 100);
     printf("received: %s\n", buff);
-    // memset(buff, 0, 100);
-    // printf("Enter message to send: ");
-    // fgets(buff, 100, stdin);
-    // my_send(mysock, buff, strlen(buff)+1);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
+    my_recv(mysock, buff, 100);
+    printf("received: %s\n", buff);
+    memset(buff, 0, 100);
 
     myclose(mysock);
 }

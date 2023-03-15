@@ -18,24 +18,30 @@ int main(int agrc, char* argv[]){
         printf("Client connected: %s %d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
         char buff[100];
         memset(buff, 0, 100);
-        // strcpy(buff, "Send Load");
-        // printf("Enter message to send: ");
-        // fgets(buff, 100, stdin);
-        // my_send(mysock, buff, strlen(buff)+1);
-        // printf("Bhai yeh kya hai\n");
-        // memset(buff, 0, 100);
-        // my_recv(mysock, buff, 100);
-        // printf("received: %s\n", buff);
         strcpy(buff, "Send Load1");
         my_send(mysock, buff, strlen(buff)+1);
         strcpy(buff, "Send Load2");
         my_send(mysock, buff, strlen(buff)+1);
         strcpy(buff, "Send Load3");
         my_send(mysock, buff, strlen(buff)+1);
-        
-        // sleep(3);
-        // close(newsockfd);
-    // }
+        strcpy(buff, "Send Load4");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load5");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load6");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load7");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load8");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load9");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load10");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load11");
+        my_send(mysock, buff, strlen(buff)+1);
+        strcpy(buff, "Send Load12");
+        my_send(mysock, buff, strlen(buff)+1);
     myclose(mysock);
     return 0;
 }

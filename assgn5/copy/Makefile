@@ -1,25 +1,17 @@
 CC = gcc
-CFLAGS = -Wall -Werror -pthread
+CFLAGS = -Wall -Werror -pthread 
 
-SERVER_SRCS = mysocket.c test_server.c
-CLIENT_SRCS = mysocket.c test_client.c
+SRCS = mysocket.c
+OBJS = $(SRCS:.c=.o)
+TARGET = libmsocket.a
 
-SERVER_OBJS = $(SERVER_SRCS:.c=.o)
-CLIENT_OBJS = $(CLIENT_SRCS:.c=.o)
+all: $(TARGET)
 
-all: test_server test_client
-
-test_server: $(SERVER_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
-
-test_client: $(CLIENT_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+$(TARGET): $(OBJS)
+	ar rcs $(TARGET) $(OBJS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o test_server test_client
-
-kill:
-	sudo fuser -k 8000/tcp
+	rm -f *.o $(TARGET)
